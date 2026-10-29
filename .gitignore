@@ -495,3 +495,4 @@ dist/
 # --- local env / secrets ---
 .env
 *.env.local
+.claude/worktrees/
