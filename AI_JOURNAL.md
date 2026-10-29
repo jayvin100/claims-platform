@@ -687,3 +687,27 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **D46:** Claude A and Codex voted to accept it. Claude B voted to accept the decision but reword the row: CORS also allows `Content-Type` and any method, not just the two identity headers. The outcome is accept unchanged, 2 of 3 (D86), with Claude B's wording point recorded as dissent.
   - **IEventPublisher:** all three members chose (a): record that the outbox replaced it, and change no code (D87). Claude B pointed out that D24 already rejected a fake Kafka publisher. Claude B and Codex both asked the row to state the limit honestly: outbox assertions prove the event was saved, not that it was delivered, and the publish loop is checked only by hand.
 - **Process deviation, logged:** no round 2, again. The only split was over the wording of D46, and the decision itself was unanimous. council.md asks for a round 2.
+
+## Entry #40 (Thu 29 Oct 14:19): last gaps closed; approval council next
+
+- **Agent checks (14:08–14:18):**
+  - **Kafka outage (ticket #8's manual check): passed.**
+    - With Kafka stopped, submit returned 201, and pick-up, Reserve and approve each returned 200.
+    - Four outbox rows waited unsent, and no notification or reporting rows were written.
+    - After Kafka started again, the outbox emptied in about 2.5 s.
+  - **Finding:** the consumers took about 45 s more to process the events. That matches Kafka's default consumer session timeout (45 s) while the consumers rejoin, but nobody has confirmed the cause. Sent to the approval council.
+  - **README's own ports with real CORS (ticket #14): passed.** Headless Chrome on 4200 against the API on 5169, with no web-security flag, ran the whole demo script.
+    - All 49 API calls succeeded, including 16 preflights.
+    - The console showed no CORS errors.
+    - The identity headers reached the API on the real calls.
+- **Agent fixes (`a2eba4a`):**
+  - The README's Node range now matches the lockfile: 22.22.3+.
+  - The demo says "Singapore", as the form does.
+  - A new line says the Claimant sees the Reserve by design (D65).
+  - The Exposure lag in step 5 is now worded as watching an already-open Dashboard catch up.
+  - One shared date format for both roles' timelines.
+  - Results: 188 tests pass, and `ng build` is clean.
+- **Lead:**
+  - Ticked the acceptance boxes on #8 and #14, so all of #3–#14 are ticked.
+  - Merged the fixes and removed the agent's worktree.
+- **Next:** an approval council, as I asked: "now i want a new council/audit/review and if they approve all of this like everything we have built." It gets a full round 1 and round 2.
