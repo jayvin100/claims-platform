@@ -18,6 +18,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SimulatedEmail> SimulatedEmails => Set<SimulatedEmail>();
     public DbSet<ReportingClaim> ReportingClaims => Set<ReportingClaim>();
 
+    // Column limits the consumers also check, so an event that could never be saved is dead-lettered (D90).
+    public const int ClaimNumberLength = 20;
+    public const int CurrencyLength = 3;
+
     /// <summary>The next number from the one sequence all Markets share (D19). Gaps are fine; repeats can't happen.</summary>
     // EF's SqlQuery for a single value reads it from a column that must be called "Value".
     public Task<long> NextClaimSequenceAsync() =>
@@ -71,10 +75,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             claim.HasIndex(c => c.ClaimNumber).IsUnique();
             claim.HasIndex(c => c.ClaimantId);
             claim.HasIndex(c => c.AssignedOfficerId);
-            claim.Property(c => c.ClaimNumber).HasMaxLength(20);
+            claim.Property(c => c.ClaimNumber).HasMaxLength(ClaimNumberLength);
             claim.Property(c => c.PolicyNumber).HasMaxLength(50);
             claim.Property(c => c.Market).HasConversion<string>().HasMaxLength(2);
-            claim.Property(c => c.Currency).HasMaxLength(3);
+            claim.Property(c => c.Currency).HasMaxLength(CurrencyLength);
             claim.Property(c => c.ClaimType).HasConversion<string>().HasMaxLength(20);
             claim.Property(c => c.Description).HasMaxLength(2000);
             // No precision set: Postgres "numeric" keeps the amount exactly as given, never rounded on save.
@@ -143,7 +147,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // The id comes from the event, never from the database.
             row.Property(r => r.ClaimId).ValueGeneratedNever();
             row.Property(r => r.Market).HasConversion<string>().HasMaxLength(2);
-            row.Property(r => r.Currency).HasMaxLength(3);
+            row.Property(r => r.Currency).HasMaxLength(CurrencyLength);
             row.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
             // No precision set, as on the Claim: the amount is kept exactly as the event gave it.
             row.Property(r => r.ReserveAmount);

@@ -25,10 +25,11 @@ public class OutboxMessage
     public void MarkSent(DateTimeOffset now) => SentAt = now;
 
     /// <summary>How events are written to JSON, and so how consumers read them back.</summary>
-    // camelCase names and enum names, the same JSON the API returns.
+    // camelCase names and enum names, the same JSON the API returns. As in the API, a number in an enum's place is
+    // refused when read, so a consumer can't take "market": 99 for a Market (D90). Writing is unchanged: names.
     public static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new JsonStringEnumConverter(allowIntegerValues: false) },
     };
 
     public static OutboxMessage From(ClaimEvent claimEvent) => new()

@@ -396,6 +396,49 @@ public class ClaimTests
         Assert.Empty(claim.Events);
     }
 
+    // D60's order: on a held Claim, another Officer gets the 403 even when the status rule (409) or the input (400)
+    // would also refuse the action.
+    [Theory]
+    [InlineData("set Reserve", ClaimStatus.Settled, "1000")]
+    [InlineData("set Reserve", ClaimStatus.Settled, "0")]
+    [InlineData("set Reserve", ClaimStatus.UnderReview, "0")]
+    [InlineData("approve", ClaimStatus.Settled, null)]
+    [InlineData("reject", ClaimStatus.Settled, null)]
+    public void Another_Officer_is_refused_as_not_assigned_before_the_status_rule_and_the_input(
+        string action, ClaimStatus status, string? reserve)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+        var otherOfficerId = Guid.NewGuid();
+
+        Action act = action switch
+        {
+            "set Reserve" => () => claim.SetReserve(otherOfficerId, decimal.Parse(reserve!, CultureInfo.InvariantCulture), Later),
+            "approve" => () => claim.Approve(otherOfficerId, Later),
+            _ => () => claim.Reject(otherOfficerId, "Policy had lapsed", Later),
+        };
+        Assert.Throws<NotAssignedOfficerException>(act);
+
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    // D60's order: for the Assigned Officer, the status rule's 409 comes before the input's 400.
+    [Theory]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    public void A_Reserve_of_zero_on_a_Claim_past_Under_Review_gets_the_status_rule_not_the_input_error(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.SetReserve(OfficerId, 0m, Later));
+
+        Assert.Equal("The Reserve can only be set while the Claim is Under Review.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
     [Fact]
     public void Assigned_Officer_asks_the_Claimant_a_question_which_moves_the_Claim_to_Info_Requested()
     {
@@ -544,26 +587,27 @@ public class ClaimTests
     }
 
     // Reaches a status through the Claim's own methods, with OfficerId as the Assigned Officer and no
-    // events left over. Info Requested leaves one open Info Request.
+    // events left over. Info Requested leaves one open Info Request. Everything happens at Now, so a refused action
+    // at Later that wrongly moved UpdatedAt shows up in the Snapshot.
     private static Claim InStatus(ClaimStatus status)
     {
         var claim = Submit(Market.SG, new DateOnly(2026, 10, 28));
         if (status != ClaimStatus.Submitted)
-            claim.PickUp(OfficerId, Later);
+            claim.PickUp(OfficerId, Now);
 
         switch (status)
         {
             case ClaimStatus.InfoRequested:
-                claim.RequestInfo(OfficerId, "Was anyone hurt?", Later);
+                claim.RequestInfo(OfficerId, "Was anyone hurt?", Now);
                 break;
             case ClaimStatus.Approved or ClaimStatus.Settled:
-                claim.SetReserve(OfficerId, 1500m, Later);
-                claim.Approve(OfficerId, Later);
+                claim.SetReserve(OfficerId, 1500m, Now);
+                claim.Approve(OfficerId, Now);
                 if (status == ClaimStatus.Settled)
-                    claim.Settle(OfficerId, Later);
+                    claim.Settle(OfficerId, Now);
                 break;
             case ClaimStatus.Rejected:
-                claim.Reject(OfficerId, "Policy had lapsed", Later);
+                claim.Reject(OfficerId, "Policy had lapsed", Now);
                 break;
         }
         claim.ClearEvents();
@@ -571,8 +615,8 @@ public class ClaimTests
     }
 
     // What a refused action must leave as it was. It must also raise no event.
-    private static (ClaimStatus, Guid?, decimal?, int, int, int) Snapshot(Claim claim) =>
-        (claim.Status, claim.AssignedOfficerId, claim.ReserveAmount, claim.History.Count,
+    private static (ClaimStatus, Guid?, decimal?, DateTimeOffset, int, int, int) Snapshot(Claim claim) =>
+        (claim.Status, claim.AssignedOfficerId, claim.ReserveAmount, claim.UpdatedAt, claim.History.Count,
          claim.InfoRequests.Count, claim.InfoRequests.Count(r => r.IsOpen));
 
     private static Claim Submit(Market market, DateOnly incidentDate, long sequence = 1) =>

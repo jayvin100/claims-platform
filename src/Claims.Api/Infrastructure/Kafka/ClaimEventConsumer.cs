@@ -41,7 +41,8 @@ public abstract class ClaimEventConsumer(
     /// <summary>
     /// The outbox's JSON settings, made strict for reading: a missing field, or a null in a field that can't be null,
     /// fails instead of quietly becoming an empty Guid or a null. So such an event goes to the dead-letter topic,
-    /// rather than writing a bogus email or failing the database save and retrying for ever.
+    /// rather than writing a bogus email or failing the database save and retrying for ever. Enums must be names, so
+    /// "market": 99 fails here too; that rule comes with the outbox's settings (OutboxMessage.JsonOptions).
     /// </summary>
     private static readonly JsonSerializerOptions ReadOptions = new(OutboxMessage.JsonOptions)
     {
@@ -176,8 +177,8 @@ public abstract class ClaimEventConsumer(
 
     /// <summary>
     /// Reads a message into its event, or throws <see cref="PoisonMessageException"/> with the reason if it can't be
-    /// read: no event type, an empty value, a type that isn't a claim event, or JSON that doesn't fit that type.
-    /// Pure, with no database, so a database error can never be mistaken for poison. Public so tests read events
+    /// read: no event type, an empty value, a type that isn't a claim event, or JSON that doesn't fit that type
+    /// (including a value the database could never store, see CheckValues). Pure, with no database, so a database error can never be mistaken for poison. Public so tests read events
     /// exactly as the consumers do.
     /// </summary>
     public static ClaimEvent ReadEvent(string? eventType, string? eventJson)
@@ -188,10 +189,11 @@ public abstract class ClaimEventConsumer(
             throw new PoisonMessageException("empty value");
         if (!EventTypes.TryGetValue(eventType, out var type))
             throw new PoisonMessageException($"unknown event type {eventType}");
+        ClaimEvent claimEvent;
         try
         {
             // "null" is valid JSON, but not an event.
-            return (ClaimEvent?)JsonSerializer.Deserialize(eventJson, type, ReadOptions)
+            claimEvent = (ClaimEvent?)JsonSerializer.Deserialize(eventJson, type, ReadOptions)
                 ?? throw new PoisonMessageException($"{eventType} is null");
         }
         catch (JsonException ex)
@@ -199,6 +201,29 @@ public abstract class ClaimEventConsumer(
             // Not JSON, a missing field, a null where none is allowed, or text where a number should be.
             throw new PoisonMessageException($"can't read {eventType}: {ex.Message}");
         }
+        CheckValues(eventType, claimEvent);
+        return claimEvent;
+    }
+
+    // Valid JSON can still hold a value no Claim could have: one the database would refuse on every retry, or a
+    // Market that Reporting has no currency for. That counts as JSON that doesn't fit, so it is poison too. The limits
+    // are the Claims table's columns, where every real event's values come from.
+    private static void CheckValues(string eventType, ClaimEvent claimEvent)
+    {
+        if (!Enum.IsDefined(claimEvent.Market))
+            throw new PoisonMessageException($"{eventType} has an unknown market {claimEvent.Market}");
+        // Notifications puts it in an email Subject (200 at most), which fits any claim number up to this length.
+        if (claimEvent.ClaimNumber.Length > AppDbContext.ClaimNumberLength)
+            throw new PoisonMessageException($"{eventType} has a claim number over {AppDbContext.ClaimNumberLength} characters");
+        // Only these two events carry a currency.
+        var currency = claimEvent switch
+        {
+            ClaimSubmitted e => e.Currency,
+            ReserveSet e => e.Currency,
+            _ => null,
+        };
+        if (currency is not null && currency.Length != AppDbContext.CurrencyLength)
+            throw new PoisonMessageException($"{eventType} has a currency that isn't {AppDbContext.CurrencyLength} characters");
     }
 
     /// <summary>

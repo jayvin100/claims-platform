@@ -9,6 +9,8 @@ using Claims.Api.Reporting;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 using static Claims.Api.Tests.TestUsers;
 
 namespace Claims.Api.Tests;
@@ -57,6 +59,14 @@ public class DeadLetterTests(ApiFactory factory) : IClassFixture<ApiFactory>, IA
             { nameof(ClaimSubmitted), With(submitted, "claimId", 5), "can't read ClaimSubmitted" },
             // Notifications ignores ReserveSet, but still reads it, so a malformed one isn't recorded as processed.
             { nameof(ReserveSet), With(reserveSet, "claimId", 5), "can't read ReserveSet" },
+            // Valid JSON with a value no Claim could have, which would otherwise fail on every retry.
+            { nameof(ClaimSubmitted), With(submitted, "market", 99), "can't read ClaimSubmitted" },
+            { nameof(ClaimSubmitted), With(submitted, "market", "99"), "can't read ClaimSubmitted" },
+            // Names joined by commas read as flags: HK (2) | ID (4) = 6, which is no Market.
+            { nameof(ClaimSubmitted), With(submitted, "market", "HK, ID"), "ClaimSubmitted has an unknown market" },
+            { nameof(ClaimSubmitted), With(submitted, "currency", "SGDXX"), "ClaimSubmitted has a currency that isn't 3" },
+            { nameof(ReserveSet), With(reserveSet, "currency", "SGDXX"), "ReserveSet has a currency that isn't 3" },
+            { nameof(ClaimSubmitted), With(submitted, "claimNumber", new string('9', 300)), "ClaimSubmitted has a claim number over 20" },
         };
     }
 
@@ -131,6 +141,28 @@ public class DeadLetterTests(ApiFactory factory) : IClassFixture<ApiFactory>, IA
 
         await Assert.ThrowsAsync<ProduceException<string, string>>(() =>
             consumer.HandleAsync(Received("ClaimArchived", "{ }"), new FakeProducer(fails: true), CancellationToken.None));
+    }
+
+    // A good event when the database is down: nothing listens on port 1, so the consumer's first query fails, as it
+    // would in a real outage. That is a failure that may pass, so it must throw (and be retried), not be dead-lettered.
+    [Fact]
+    public async Task A_database_error_is_retried_not_dead_lettered()
+    {
+        using var services = new ServiceCollection()
+            .AddDbContext<AppDbContext>(options => options.UseNpgsql("Host=localhost;Port=1;Database=none;Username=x;Password=x"))
+            .BuildServiceProvider();
+        var consumer = new ReportingConsumer(services.GetRequiredService<IServiceScopeFactory>(), new KafkaOptions(),
+            TimeProvider.System, NullLogger<ReportingConsumer>.Instance);
+        var row = OutboxMessage.From(new ClaimSubmitted(Guid.NewGuid(), Guid.NewGuid(), "CLM-SG-000001", Market.SG,
+            DateTimeOffset.UtcNow, Aisha.Id, "SGD"));
+        var producer = new FakeProducer();
+
+        // EF wraps the connection error it got from Npgsql.
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            consumer.HandleAsync(Received(row.Type, row.Payload), producer, CancellationToken.None));
+
+        Assert.IsType<NpgsqlException>(error.InnerException);
+        Assert.Empty(producer.Sent);
     }
 
     private IEnumerable<ClaimEventConsumer> Consumers() =>

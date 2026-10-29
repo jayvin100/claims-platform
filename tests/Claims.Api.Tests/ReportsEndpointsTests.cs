@@ -57,7 +57,7 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
     }
 
     [Fact]
-    public async Task Workload_shows_each_Officers_open_Claims_by_status_and_the_unassigned_count()
+    public async Task Workload_shows_each_Officers_Claims_by_status_and_the_unassigned_count()
     {
         var unassigned = await SubmitAs(Aisha, "PH");
         var priyas = await SubmitAs(Aisha, "SG");
