@@ -136,7 +136,7 @@ D54–D59 are the AI's implementation calls, made without asking because they do
 
 ## Ticket 04: Officer assesses and decides (#6)
 
-D60–D65 are the AI's implementation calls, made without asking because they don't change an agreed decision; they await Jay's review (AI_JOURNAL entry #16).
+D60–D65 are the AI's implementation calls, made without asking because they don't change an agreed decision; Jay accepted them on Thu 29 Oct 12:59 (AI_JOURNAL entries #16 and #17).
 
 | # | Decision | Chosen over | Why |
 |---|---|---|---|

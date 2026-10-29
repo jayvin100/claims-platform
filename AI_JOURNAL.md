@@ -21,6 +21,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 13:00 | 13:23 | Wave 1 in parallel: #7, #8, #10 built in worktrees; reviews by two Claude agents plus Codex; #10 and #7 merged; wave-1 council |
 | 13:23 | 13:48 | Waves 2 and 3: #8, #9, #11, #12, #13 merged with reviews and fixers; wave-2 council; #14 README and fresh-clone check |
 | 13:48 | 13:59 | 3h warning to Jay; final whole-repo review, final council, fixes, live check, worktree cleanup |
+| 14:05 | | Independent verification (fresh clone, two acceptance audits); gaps closed; council on D41–D46 |
 
 ---
 
@@ -126,7 +127,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 
 - **Codex's verdict:** keep the architecture. Stop adding planning. It found real gaps in the event contract and startup, and flagged that my grilling acceptances (31 of 31) and my outbox reason looked like rubber-stamping. It also corrected the clock: on a continuous count the 5-hour cap ends at **15:48 today**, not tomorrow.
 - **The AI put six decisions to me**, giving its own view where it differed from Codex:
-  - **Outbox:** Codex said build it only within a 15–20 minute gate; the AI said keep it. **I chose to build it.** _(Reason beyond "yes": pending Jay.)_
+  - **Outbox:** Codex said build it only within a 15–20 minute gate; the AI said keep it. **I chose to build it.** _(Reason, given 14:10: no lost events; see entry #38.)_
   - **Exposure:** rename the figure to Open Reserves and add an Unreserved count, so unpriced claims don't show as zero. **Accepted.**
   - **Cuts:** Codex proposed an ordered cut list. **Overrode: no cuts.** My reason: we can make it in time.
   - **Time budget:** Codex proposed 120 more minutes with checkpoints. **Adopted as the ceiling.** I expect to finish under it.
@@ -159,7 +160,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Rejected:** the spec reviewer said an unknown route without headers returns 404. The AI had already seen 401 from the running API, and added a test that proves it.
   - **Left as is:** the test connection string repeats the dev one (explicit is easier to read), and roles go out as strings.
 - **Result:** 12 integration tests pass against `claims_test`, with 0 build warnings. Build time at commit: 1h29m of the 5h cap.
-- **Questions for me:** _(pending Jay)_ do I want to override any of D41–D46?
+- **Questions for me:** do I want to override any of D41–D46? _(Answered 14:10: Jay sent them to the council; see entry #39.)_
 
 ## Entry #13 (Thu 29 Oct 12:30): ticket 02, Claimant submits and tracks a Claim (#4, `/implement`)
 
@@ -647,4 +648,33 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - a Codex audit of every acceptance criterion, the REST contract, the events and the README.
 - **Mismatch the AI found:** the original prompt's summary of the brief says ".NET 8", but D3 said "the brief doesn't pin a version". The AI asked me, because only I have the brief.
 - **My answer (14:09):** the brief says .NET 8 or later. D3's reason now quotes the brief correctly, and the README's prerequisites say why .NET 10 meets it. The decision itself is unchanged.
+
+## Entry #38 (Thu 29 Oct 14:13): verification results; open questions answered
+
+- **Verifier results:**
+  - **Fresh clone from GitHub, following only the README: passed everywhere.** Setup, API, Swagger, 188 tests, the Kafka flow (five emails), the full Angular demo, the role guards, and the two-Officer conflict demo in two browser profiles all passed.
+    - **README problems it found:** the "a few seconds later" Exposure lag only shows if the Dashboard is already open (the drop was measured at 0.3 s); the demo says "SG" where the form says "Singapore"; the README doesn't mention that the Claimant sees the Reserve (D65).
+    - **Display inconsistency it found:** the timeline dates are formatted differently on the Officer and Claimant screens.
+  - **Claude audit: no code defects, and the late decisions and the core goals of my original prompt all hold.** It listed these gaps:
+    - **Ticket #8's manual check never run:** "stop Kafka, submit, restart, see it publish".
+    - **Ticket #14's fresh-clone check never run under real conditions:** it has not run on the README's own ports with normal browser security, so CORS was not exercised in a browser.
+    - **Issues #5–#14 closed with every box unticked.**
+    - **A stale "await Jay's review" line** on D60–D65.
+    - **Two journal questions still marked "pending Jay".**
+    - **The `IEventPublisher` change with no D-row:** it is from my original prompt and was replaced by the outbox.
+    - **Process gaps:** the journal was updated once per merge, not once per builder or fixer commit, and the review shortcuts are all logged.
+  - **Codex audit:**
+    - **Partial by the ticket's wording, but covered by later decisions:** D66, D68/D79, D69 and D75.
+    - **Same two gaps the Claude audit found:** the Kafka-outage check and the default-ports check.
+    - **README Node range:** it says 22.22+, but the lockfile needs 22.22.3+.
+    - **Rejected, not a bug:** Codex flagged that the pick-up 409 message always blames another Officer. A Submitted Claim can only change by being picked up, so the message is accurate.
+- **What happens next:**
+  - **One agent:** runs the Kafka-outage check and the default-ports check with real CORS, and fixes the README and date-format problems.
+  - **Council:** D41–D46 and the `IEventPublisher` question (I chose the council for D41–D46).
+- **Done by the lead:**
+  - ticked the acceptance boxes on #5, #6, #7, #9, #10, #11, #12 and #13; #8 and #14 wait for their checks;
+  - corrected the D60–D65 line;
+  - added this time-log row.
+- **My outbox reason (14:10), replacing the "pending Jay" in entry #11:** no lost events. Without the outbox, a crash between saving the Claim and publishing to Kafka loses the event, and Exposure and the emails go wrong (spec story 59).
+- **On the journal-per-commit gap:** builder and fixer agents were told not to edit AI_JOURNAL.md, so that parallel branches wouldn't conflict (entry #17). The lead wrote one entry per merge instead, covering every commit in it. This trade-off was made on purpose and is logged here.
 
