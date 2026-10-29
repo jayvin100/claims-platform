@@ -14,18 +14,16 @@ public class NotificationsConsumer(
 {
     protected override string ConsumerName => "notifications";
 
-    protected override Task ApplyAsync(
-        AppDbContext db, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
+    protected override Task<Action?> ApplyAsync(
+        AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
     {
         var email = NotificationEmails.For(eventType, eventJson, now);
-        if (email is not null)
-        {
-            db.SimulatedEmails.Add(email);
-            // Logged before the save; if the save fails, the message is retried and this line appears again,
-            // but the log table still gets exactly one row.
-            logger.LogInformation("Simulated email to Claimant {ClaimantId}: \"{Subject}\" - {Body}",
-                email.ClaimantId, email.Subject, email.Body);
-        }
-        return Task.CompletedTask;
+        if (email is null)
+            return Task.FromResult<Action?>(null);
+
+        db.SimulatedEmails.Add(email);
+        // The console line is printed only after the row is saved, so a retried save never prints it twice.
+        return Task.FromResult<Action?>(() => logger.LogInformation(
+            "Simulated email to Claimant {ClaimantId}: \"{Subject}\" - {Body}", email.ClaimantId, email.Subject, email.Body));
     }
 }

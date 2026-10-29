@@ -19,6 +19,9 @@ public class KafkaOptions
     /// </summary>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>How long topic creation and the consumers wait before trying again after a failure.</summary>
+    public static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
+
     public string BootstrapServers { get; set; } = "localhost:9092";
 
     /// <summary>The connection settings every producer, consumer and admin client starts from.</summary>

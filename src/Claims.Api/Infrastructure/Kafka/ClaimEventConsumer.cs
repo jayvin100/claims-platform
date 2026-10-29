@@ -15,17 +15,16 @@ namespace Claims.Api.Infrastructure.Kafka;
 public abstract class ClaimEventConsumer(
     IServiceScopeFactory scopes, KafkaOptions kafka, TimeProvider time, ILogger logger) : BackgroundService
 {
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
-
     /// <summary>The consumer group id, and the name its processed event ids are recorded under.</summary>
     protected abstract string ConsumerName { get; }
 
     /// <summary>
     /// Adds this consumer's rows for one event to <paramref name="db"/> without saving them. The caller saves
-    /// them together with the processed event id, so both are stored or neither is.
+    /// them together with the processed event id, so both are stored or neither is. Returns anything that must
+    /// happen only once they are saved (such as a console line), or null; the caller runs it after the save.
     /// </summary>
-    protected abstract Task ApplyAsync(
-        AppDbContext db, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken);
+    protected abstract Task<Action?> ApplyAsync(
+        AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken);
 
     // .NET 10 runs ExecuteAsync on a background thread, so the blocking Consume call doesn't hold up startup.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,13 +36,16 @@ public abstract class ClaimEventConsumer(
             EnableAutoCommit = false,
             // A group with no committed offset yet starts from the oldest message, so no event is missed.
             AutoOffsetReset = AutoOffsetReset.Earliest,
+            // Check for new topics every 5 s (default 5 min), so a consumer that starts before the topic
+            // creator has made claim-events starts reading soon after the topic appears.
+            TopicMetadataRefreshIntervalMs = 5000,
         };
         using var consumer = new ConsumerBuilder<string, string>(config).Build();
         consumer.Subscribe(KafkaOptions.Topic);
 
         try
         {
-            while (true)
+            while (!stoppingToken.IsCancellationRequested)
             {
                 ConsumeResult<string, string>? result = null;
                 try
@@ -54,12 +56,20 @@ public abstract class ClaimEventConsumer(
                     // If we crash before this line, Kafka redelivers the message and HandleAsync skips it.
                     consumer.Commit(result);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
-                    logger.LogError(ex, "{Consumer} couldn't handle a message; retrying in {Delay}s", ConsumerName, RetryDelay.TotalSeconds);
+                    break; // The host is stopping.
+                }
+                catch (Exception ex)
+                {
+                    // Anything else, including an OperationCanceledException from a timeout, is a failure.
+                    // The same message is retried until it succeeds. That blocks the rest of its partition, by
+                    // design: skipping it would lose the event, and moving past it would break the Claim's order.
+                    logger.LogError(ex, "{Consumer} couldn't handle a message; retrying in {Delay}s",
+                        ConsumerName, KafkaOptions.RetryDelay.TotalSeconds);
                     if (result is not null)
                         RewindTo(consumer, result);
-                    await Task.Delay(RetryDelay, stoppingToken);
+                    await Task.Delay(KafkaOptions.RetryDelay, stoppingToken);
                 }
             }
         }
@@ -82,7 +92,7 @@ public abstract class ClaimEventConsumer(
         {
             // The partition was handed elsewhere in a rebalance. Its next owner starts from the last
             // committed offset, which is still this message, so it isn't lost.
-            logger.LogWarning("{Consumer} couldn't rewind to {Offset} ({Reason})", ConsumerName, result.TopicPartitionOffset, ex.Message);
+            logger.LogWarning(ex, "{Consumer} couldn't rewind to {Offset}", ConsumerName, result.TopicPartitionOffset);
         }
     }
 
@@ -103,9 +113,12 @@ public abstract class ClaimEventConsumer(
         }
 
         var now = time.GetUtcNow();
-        await ApplyAsync(db, eventType, message.Value, now, stoppingToken);
+        var afterSave = await ApplyAsync(db, eventId, eventType, message.Value, now, stoppingToken);
         db.ProcessedEvents.Add(new ProcessedEvent(ConsumerName, eventId, now));
         // One SaveChanges is one transaction: the consumer's rows and the processed id are stored together.
         await db.SaveChangesAsync(stoppingToken);
+        // Only after the commit, and only for a new event: if the save fails, the retry would otherwise repeat it,
+        // and a redelivered duplicate returns above before reaching here.
+        afterSave?.Invoke();
     }
 }

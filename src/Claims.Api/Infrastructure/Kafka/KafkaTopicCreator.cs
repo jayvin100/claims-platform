@@ -13,7 +13,6 @@ public class KafkaTopicCreator(KafkaOptions kafka, ILogger<KafkaTopicCreator> lo
     // One replica, because the Compose Kafka is a single broker.
     private const int Partitions = 3;
     private const short Replicas = 1;
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -38,8 +37,8 @@ public class KafkaTopicCreator(KafkaOptions kafka, ILogger<KafkaTopicCreator> lo
             catch (KafkaException ex)
             {
                 logger.LogWarning("Couldn't create Kafka topic {Topic} ({Reason}); retrying in {Delay}s",
-                    KafkaOptions.Topic, ex.Message, RetryDelay.TotalSeconds);
-                await Task.Delay(RetryDelay, stoppingToken);
+                    KafkaOptions.Topic, ex.Message, KafkaOptions.RetryDelay.TotalSeconds);
+                await Task.Delay(KafkaOptions.RetryDelay, stoppingToken);
             }
         }
     }

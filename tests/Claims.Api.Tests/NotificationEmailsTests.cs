@@ -20,6 +20,7 @@ public class NotificationEmailsTests
     [
         new ClaimSubmitted(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "SGD"),
         new ClaimPickedUp(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, OfficerId, ClaimantId),
+        new InfoRequested(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "Please send the repair quote."),
         new ClaimApproved(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId),
         new ClaimRejected(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "Not covered"),
         new ClaimSettled(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId),
@@ -44,6 +45,14 @@ public class NotificationEmailsTests
         var email = EmailFor(new ClaimRejected(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "Not covered"));
 
         Assert.Contains("Reason: Not covered", email!.Body);
+    }
+
+    [Fact]
+    public void Info_request_email_gives_the_Officers_question()
+    {
+        var email = EmailFor(new InfoRequested(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "Please send the repair quote."));
+
+        Assert.Contains("Please send the repair quote.", email!.Body);
     }
 
     [Fact]

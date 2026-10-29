@@ -36,10 +36,15 @@ public class OutboxPublisher(
             {
                 await PublishPendingAsync(producer, stoppingToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // The failed row is still unsent and is the first one the next poll picks up.
-                logger.LogWarning("Couldn't publish outbox events ({Reason}); retrying", ex.Message);
+                break; // The host is stopping.
+            }
+            catch (Exception ex)
+            {
+                // Any other failure, including an OperationCanceledException from a timeout, is retried:
+                // the failed row is still unsent and is the first one the next poll picks up.
+                logger.LogWarning(ex, "Couldn't publish outbox events; retrying");
             }
         }
     }
@@ -50,8 +55,10 @@ public class OutboxPublisher(
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         // "Not yet sent" rather than "after the last one sent": a row whose transaction committed late,
-        // behind a higher sequence number, is still picked up. Two events of one Claim can't commit out of
-        // order, because each change to a Claim is checked against its xmin (D13).
+        // behind a higher sequence number, is still picked up. So the order kept is per Claim, not global:
+        // events of different Claims can be published out of sequence order. Within one Claim it holds,
+        // because each save raises one event and is checked against the Claim's xmin (D13), so a Claim's
+        // events commit one after another, in sequence order.
         var pending = await db.OutboxMessages
             .Where(m => m.SentAt == null)
             .OrderBy(m => m.Sequence)
