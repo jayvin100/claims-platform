@@ -1,0 +1,43 @@
+# Local infrastructure only. The API and Angular app run on the host (D25).
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: claims
+      POSTGRES_PASSWORD: claims # local demo only, not a secret
+      POSTGRES_DB: claims
+    ports:
+      # 5433 on the host so a locally installed Postgres on 5432 does not clash
+      - "5433:5432"
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/<version>
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claims"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  kafka:
+    image: apache/kafka:4.3.2
+    ports:
+      - "9092:9092"
+    environment:
+      # One node acting as both broker and controller (KRaft, no ZooKeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      # Single broker, so internal topics can only have one replica
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # The API creates claim-events itself, so typos never create stray topics
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+volumes:
+  postgres-data:

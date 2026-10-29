@@ -12,6 +12,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 11:12 | 11:35 | Move tracking to GitHub Issues under a wayfinder map; repo made public; Codex review prompt |
 | 11:35 | 11:53 | Codex runs its independent review (clock kept running) |
 | 11:53 | 12:01 | Weigh the Codex findings, apply decisions to spec, tickets, ADRs |
+| 12:04 | 12:17 | Ticket 01 (#3): Compose, API skeleton, demo identity, tests, code review |
 
 ---
 
@@ -125,3 +126,30 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Dependencies:** pinned (Npgsql EF 10.0.3, Confluent.Kafka 2.16.0, Angular CLI 22.2.5, local `dotnet-ef`); the rest at the latest stable version, recorded when added. **Accepted.** My reason: if anything breaks later, it won't be because a dependency version changed.
 - **Applied:** spec #2 and tickets #3, #4, #5, #7, #8, #9 and #13 updated, plus links on #11 and #14. Glossary gains Open Reserves and Unreserved Claim. ADR-0002, 0004 and 0005 are qualified where Codex showed they promised too much. Decision log D33–D37 added. The time log is now a running record.
 - **The AI noted where it disagreed with Codex:** on the outbox, because without one the request must call Kafka, which needs a fake publisher in tests and couples REST to the broker.
+
+## Entry #12 (Thu 29 Oct 12:17): ticket 01, runnable skeleton (#3, `/implement`)
+
+- **Asked:** implement #3 test-first, then review it, commit and push. Mid-ticket I told the AI to note every change, decision and question in the docs.
+- **AI asked me, and I chose:**
+  - **Packages:** approved all at the latest stable versions (D38), and dropped coverlet.collector, which the xunit template adds but wasn't approved.
+  - **xunit 2.9.3 over xunit.v3** (D39). The AI recommended it as the .NET 10 template default with the most `WebApplicationFactory` examples.
+  - **EF version warning:** the tests ran EF 10.0.4 while the API ran 10.0.14. I chose to pin EF Core Relational 10.0.14 in the API (D40) over lowering EF Core Design to 10.0.4 or leaving the warning.
+- **AI found and fixed, without asking** (D41–D46; they don't change an agreed decision, but are mine to override):
+  - A Homebrew Postgres on my machine owns `localhost:5432` and answered instead of the container ("role claims does not exist"). The AI moved Compose Postgres to host port **5433** rather than stopping my local service.
+  - Images: `postgres:18.6-alpine` and `apache/kafka:4.3.2`, both checked as native arm64; it skipped Kafka 4.4.0 as only days old.
+  - Identity as an ASP.NET Core authentication scheme plus a "must be signed in" fallback policy, so the JWT swap is one line in `Program.cs`. Seeding through EF `HasData` in the migration, so a second start can't duplicate users (checked: two starts, still 5 users).
+  - A test-only `/test/whoami` endpoint for the 401 tests, instead of adding an endpoint that isn't in the REST contract.
+  - A Swagger "Authorize" button for the two headers, and CORS for `http://localhost:4200`.
+- **TDD note:** the users-endpoint, missing-headers and exemption tests were written red first. The five "headers don't match a seeded user" cases passed on their first run, because the handler written for the missing-headers test already covered them.
+- **Code review (`/code-review`, two parallel sub-agents, standards and spec):**
+  - **Fixed:**
+    - Swagger showed a lock on `GET /api/users`.
+    - The EF Relational pin wasn't explained.
+    - A test assertion hid the actual status code on failure.
+    - The two header names were listed twice.
+    - "user" is on the glossary's avoid list, so **Demo User** was added to `GLOSSARY.md`.
+  - **Rejected:** the spec reviewer said an unknown route without headers returns 404. The AI had already seen 401 from the running API, and added a test that proves it.
+  - **Left as is:** the test connection string repeats the dev one (explicit is easier to read), and roles go out as strings.
+- **Result:** 12 integration tests pass against `claims_test`, with 0 build warnings. Build time at commit: 1h29m of the 5h cap.
+- **Questions for me:** _(pending Jay)_ do I want to override any of D41–D46?
+

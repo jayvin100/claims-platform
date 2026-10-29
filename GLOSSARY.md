@@ -16,6 +16,10 @@ _Avoid_: Adjuster, handler, agent, staff member
 The Officer who picked up a Claim. Only they can act on it from then on.
 _Avoid_: Owner, handler
 
+**Demo User**:
+One of the seeded Claimants or Officers the role picker can act as. There is no login; the chosen Demo User's id and role travel as `X-User-Id` and `X-Role`. In code, "user" means a Demo User.
+_Avoid_: Account, login
+
 **Team**:
 All Officers, taken together. There is one Team.
 _Avoid_: Department, group
