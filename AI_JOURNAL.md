@@ -13,6 +13,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 11:35 | 11:53 | Codex runs its independent review (clock kept running) |
 | 11:53 | 12:01 | Weigh the Codex findings, apply decisions to spec, tickets, ADRs |
 | 12:04 | 12:17 | Ticket 01 (#3): Compose, API skeleton, demo identity, tests, code review |
+| 12:20 | 12:30 | Ticket 02 (#4): Claim entity, submit/list/detail endpoints, outbox table, tests, code review |
 
 ---
 
@@ -152,4 +153,35 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Left as is:** the test connection string repeats the dev one (explicit is easier to read), and roles go out as strings.
 - **Result:** 12 integration tests pass against `claims_test`, with 0 build warnings. Build time at commit: 1h29m of the 5h cap.
 - **Questions for me:** _(pending Jay)_ do I want to override any of D41–D46?
+
+## Entry #13 (Thu 29 Oct 12:30): ticket 02, Claimant submits and tracks a Claim (#4, `/implement`)
+
+- **Asked:** `/implement 4`: test-first, review, commit and push.
+- **AI built, test-first at the two agreed seams:**
+  - **Seam 2 (the Claim, no database), 12 tests:** submit gives a Submitted Claim with `CLM-<market>-<6 digits>`; the currency is set from each of the six Markets; submit records a Claim History entry and raises ClaimSubmitted with all its fields; a future incident date is refused; today is accepted, judged on the Market's own clock.
+  - **Seam 1 (HTTP, real Postgres), 18 tests:**
+    - `POST /api/claims` returns 201; an Officer submitting gets 403.
+    - Missing or invalid fields return 400 (seven cases); a future incident date returns 400 with the Claim's message.
+    - A currency sent by the Claimant is ignored.
+    - `GET /api/claims` lists only the caller's Claims, newest first; an Officer listing gets 403.
+    - `GET /api/claims/{id}` returns the Claim with its Claim History; another Claimant's Claim and an unknown id get 404; an Officer can open any Claim.
+    - The ClaimSubmitted outbox row is written with its sequence number, type, Claim id and full JSON payload.
+- **AI's implementation calls, for me to review** (D47–D53): today judged by the Market's capital time zone; input limits and enum names only; a refused submit can leave a gap in Claim Numbers; events go to the outbox from one `SaveChanges` override; one exception handler maps Claim errors to problem details; Reserve and Assigned Officer are left for their own tickets; the list returns a summary shape.
+- **TDD note:** six of the seven bad-input cases and the Officer 403s passed on their first run, because `[ApiController]` validation and the role attribute already handled them. The future-date 400 was red (a 500) until the exception handler was added.
+- **AI caught one possible flaky test:** Postgres keeps microseconds while .NET keeps 100 ns ticks. macOS happens to tick in microseconds, so the test passed here but could fail on Linux. The one comparison against a database time now allows 1 µs.
+- **Code review (`/code-review`, two parallel sub-agents, standards and spec):**
+  - **Fixed:**
+    - Events were cleared before the save succeeded; they are now cleared after it.
+    - The two `switch`es on Market became one table.
+    - The `"Value"` alias in the sequence query is now explained.
+    - The Claim's summary now cites D32 for events.
+    - The sync `SaveChanges` override and the stored currency are now explained.
+    - `InvalidClaimException` now says that state rules will use a separate 409 error.
+  - **Left as is:**
+    - The event records repeat the five common fields, because C# positional records need them.
+    - The tests name the seeded users explicitly, which is easier to read than looking them up.
+    - `ClaimType` and `ClaimStatus` share one file.
+- **Smoke-checked** against the dev database: `CLM-ID-000001` was created with IDR; a future date returned a 400 problem-details response; Swagger lists the three endpoints.
+- **Result:** 42 tests pass (12 identity, 12 Claim, 18 HTTP), with 0 build warnings. Build time at commit: 1h42m of the 5h cap.
+- **Questions for me:** _(pending Jay)_ do I want to override any of D47–D53, especially D47 (Market time zones)?
 

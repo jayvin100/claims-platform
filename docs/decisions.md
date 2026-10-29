@@ -106,3 +106,17 @@ Made while building the skeleton. Jay chose D38–D40 when asked. D41–D46 are 
 | D44 | Demo users are seeded with EF `HasData`, so the rows are part of the migration. | A seeding class run at startup | Migrations only apply once, so starting the API twice can't duplicate users, with no seeding code to test. |
 | D45 | The 401 tests call a test-only endpoint (`/test/whoami`) registered from the test project. | Adding a real endpoint (e.g. `GET /api/me`) not in the REST contract | Keeps the contract unchanged; later tickets can test against real Claims endpoints. |
 | D46 | The OpenAPI document declares the two headers, so Swagger UI has an "Authorize" button; `[AllowAnonymous]` endpoints show no lock. CORS allows `http://localhost:4200` with the two headers. | Reviewers adding headers by hand in another tool | Spec story 63 (call every endpoint without the frontend); CORS is needed for the Angular app and the preflight exemption. |
+
+## Ticket 02: Claimant submits and tracks a Claim (#4)
+
+D47–D53 are the AI's implementation calls, made without asking because they don't change an agreed decision; they are listed for Jay to review and override (AI_JOURNAL entry #13).
+
+| # | Decision | Chosen over | Why |
+|---|---|---|---|
+| D47 | "Not in the future" is judged by the date on the Market's own clock (its capital's time zone: Asia/Singapore, Asia/Kuala_Lumpur, Asia/Hong_Kong, Asia/Bangkok, Asia/Jakarta, Asia/Manila). | The UTC date | All six Markets are 7–8 hours ahead of UTC, so a Claimant reporting a same-day incident before 07:00/08:00 local would be refused. Known gap: eastern Indonesia is 2 hours ahead of Jakarta. |
+| D48 | Input limits: Policy Number up to 50 characters, description up to 2000. Market and Claim Type must be sent as names (`"SG"`, `"Motor"`); a number in their place is a 400. | No limits; accepting enum numbers | Bounded columns, and `0` can't silently mean Singapore. |
+| D49 | The Claim Number sequence value is taken before the Claim checks its rules, so a refused submit leaves a gap. | Checking the rules before taking a number | D19 promises unique numbers, not consecutive ones; checking first would move a rule out of the Claim. |
+| D50 | `AppDbContext.SaveChanges` turns every Claim's raised events into outbox rows in the same save, and clears them only after the save succeeds. | Each controller action writing its own outbox rows | One place, so no later action can forget its event, and one `SaveChanges` is one transaction. |
+| D51 | Claim rule errors are exceptions, turned into problem details by one `IExceptionHandler`: `InvalidClaimException` → 400. State rules (409) get their own exception in #5. | Catching errors in each controller action | Controllers stay free of try/catch, and the Claim's own message reaches the user unchanged. |
+| D52 | A Claim History entry holds the status after the action, a description and the time, ordered by its database id. The Claim gains Reserve and Assigned Officer in the tickets that use them, each with its own migration. | Adding every spec field now | No columns without behaviour or tests behind them. |
+| D53 | `GET /api/claims` returns a summary row (Claim Number, Market, Claim Type, status, created time); `POST` and `GET /api/claims/{id}` return the full Claim with its Claim History. | One shape for both | The list doesn't load every Claim's history. |

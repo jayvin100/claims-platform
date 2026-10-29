@@ -1,0 +1,29 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace Claims.Api.Claims;
+
+// Request and response bodies for the Claims endpoints. Enums travel as their names ("SG", "Motor").
+
+/// <summary>What a Claimant enters. There is no currency: it comes from the Market (D7).</summary>
+public record SubmitClaimRequest(
+    [Required, MaxLength(50)] string PolicyNumber,
+    [Required] Market? Market,
+    [Required] ClaimType? ClaimType,
+    [Required] DateOnly? IncidentDate,
+    [Required, MaxLength(2000)] string Description);
+
+/// <summary>One row of a Claimant's My Claims list.</summary>
+public record ClaimSummaryResponse(Guid Id, string ClaimNumber, Market Market, ClaimType ClaimType, ClaimStatus Status, DateTimeOffset CreatedAt);
+
+public record ClaimHistoryResponse(ClaimStatus Status, string Description, DateTimeOffset OccurredAt);
+
+public record ClaimResponse(
+    Guid Id, string ClaimNumber, string PolicyNumber, Market Market, string Currency, ClaimType ClaimType,
+    DateOnly IncidentDate, string Description, ClaimStatus Status, Guid ClaimantId,
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, List<ClaimHistoryResponse> History)
+{
+    public static ClaimResponse From(Claim claim) => new(
+        claim.Id, claim.ClaimNumber, claim.PolicyNumber, claim.Market, claim.Currency, claim.ClaimType,
+        claim.IncidentDate, claim.Description, claim.Status, claim.ClaimantId, claim.CreatedAt, claim.UpdatedAt,
+        claim.History.OrderBy(h => h.Id).Select(h => new ClaimHistoryResponse(h.Status, h.Description, h.OccurredAt)).ToList());
+}

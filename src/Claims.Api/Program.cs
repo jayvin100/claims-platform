@@ -1,12 +1,16 @@
+using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// Enums travel as names ("SG", "Motor"), and a number in their place is refused rather than guessed at.
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddOpenApi(options => options
     .AddDocumentTransformer<IdentityHeadersDocumentTransformer>()
     .AddOperationTransformer<AnonymousOperationTransformer>());
@@ -28,8 +32,13 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ClaimExceptionHandler>();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
