@@ -91,6 +91,10 @@ The full reasoning for every choice, and what each was chosen over, is in the [d
 
 - The Angular app holds amounts as JavaScript numbers, so it is exact to about 15 significant digits. The API, the database and the Claim History timeline are exact (D73).
 - The API creates the Kafka topic at startup in Development only. Elsewhere the topic must already exist.
+- A Kafka message that can't be read at all blocks Reporting's partition until it is fixed (Notifications logs it and moves on). Production would add a dead-letter topic.
+- Optimistic concurrency (`xmin`) catches two saves at the same time, not a stale screen. An Officer who approves from an old tab approves at the current Reserve. ETag and If-Match are the next step.
+- Extreme amounts (around 1e28) can overflow the Exposure sum and fail that endpoint.
+- The outbox table only grows. Production would add a partial index on unsent rows and an archive job.
 
 ## Troubleshooting
 

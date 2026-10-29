@@ -1,6 +1,7 @@
 using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Outbox;
+using Claims.Api.Notifications;
 using Claims.Api.Reporting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -187,6 +188,19 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.False(await db.ProcessedEvents.AnyAsync(p => p.Consumer == ReportingConsumer.Name && p.EventId == eventId));
         Assert.Equal(0, await db.ReportingClaims.CountAsync());
+    }
+
+    // Q1 (a): a message that can't be decoded at all. Reporting retries it (D74); Notifications moves past it.
+    [Theory]
+    [InlineData("ClaimSubmitted", "not json")]
+    [InlineData("ClaimSubmitted", "{ }")]
+    [InlineData("", "{ }")]
+    public async Task An_unreadable_message_throws_in_Reporting_but_Notifications_skips_it(string eventType, string eventJson)
+    {
+        await Assert.ThrowsAsync<InvalidDataException>(() => Consumer().ProcessAsync(eventType, eventJson, CancellationToken.None));
+
+        var notifications = ActivatorUtilities.CreateInstance<NotificationsConsumer>(factory.Services);
+        await notifications.ProcessAsync(eventType, eventJson, CancellationToken.None); // returns, doesn't throw
     }
 
     // An event type Reporting has no rule for blocks its partition (see ReportingConsumer), so this test is what

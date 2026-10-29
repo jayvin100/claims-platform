@@ -13,7 +13,8 @@ public static class ReportingQueries
         var open = await db.ReportingClaims
             .Where(r => r.Status != ClaimStatus.Settled && r.Status != ClaimStatus.Rejected)
             // Grouped by currency too, to read each Market's currency from its rows (the events). A Market has one
-            // currency (D7), so this is still one row per Market.
+            // currency (D7), so this is normally one row per Market. If events ever disagree on a Market's currency,
+            // the odd one shows as a separate, visible row, never mixed into the other currency's sum.
             .GroupBy(r => new { r.Market, r.Currency })
             .Select(g => new MarketExposureResponse(
                 g.Key.Market, g.Key.Currency, g.Count(), g.Sum(r => r.ReserveAmount ?? 0), g.Count(r => r.ReserveAmount == null)))

@@ -14,6 +14,9 @@ public class NotificationsConsumer(
 {
     protected override string ConsumerName => "notifications";
 
+    // A missed email is better than holding up every later email on the partition.
+    protected override bool SkipUnreadable => true;
+
     protected override Task<Action?> ApplyAsync(
         AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
     {

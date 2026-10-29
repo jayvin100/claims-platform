@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using Claims.Api.Infrastructure.Data;
@@ -10,13 +11,21 @@ namespace Claims.Api.Infrastructure.Kafka;
 /// Reads claim-events for one consumer (Notifications or Reporting) with the delivery rules both need
 /// (ADR-0004, ADR-0005, D16): its own consumer group; one message at a time; event ids it has already handled
 /// are skipped; the processed id is saved in the same transaction as the consumer's own rows; the Kafka offset
-/// is committed only after that; and a message that fails is retried, never skipped.
+/// is committed only after that; and a message that fails is retried, never skipped (the one exception is an
+/// unreadable message, see <see cref="SkipUnreadable"/>).
 /// </summary>
 public abstract class ClaimEventConsumer(
     IServiceScopeFactory scopes, KafkaOptions kafka, TimeProvider time, ILogger logger) : BackgroundService
 {
     /// <summary>The consumer group id, and the name its processed event ids are recorded under.</summary>
     protected abstract string ConsumerName { get; }
+
+    /// <summary>
+    /// What to do with a message that can't be decoded (no event type, bad JSON, no event id). False (the default):
+    /// throw, so it is retried like any failure and blocks its partition until fixed (D74). True: log a warning and
+    /// move past it. Nothing is recorded, since there is no event id to record.
+    /// </summary>
+    protected virtual bool SkipUnreadable => false;
 
     /// <summary>
     /// Adds this consumer's rows for one event to <paramref name="db"/> without saving them. The caller saves
@@ -98,18 +107,47 @@ public abstract class ClaimEventConsumer(
 
     private Task HandleAsync(Message<string, string> message, CancellationToken stoppingToken)
     {
-        string eventType = Encoding.UTF8.GetString(message.Headers.GetLastBytes(KafkaOptions.EventTypeHeader));
+        string? eventType = message.Headers is not null && message.Headers.TryGetLastBytes(KafkaOptions.EventTypeHeader, out var bytes)
+            ? Encoding.UTF8.GetString(bytes)
+            : null;
         return ProcessAsync(eventType, message.Value, stoppingToken);
+    }
+
+    /// <summary>Reads the event id, or returns false if the message can't be decoded at all.</summary>
+    private static bool TryReadEventId(
+        [NotNullWhen(true)] string? eventType, [NotNullWhen(true)] string? eventJson, out Guid eventId)
+    {
+        eventId = Guid.Empty;
+        if (string.IsNullOrEmpty(eventType) || eventJson is null)
+            return false;
+        try
+        {
+            using var json = JsonDocument.Parse(eventJson);
+            return json.RootElement.ValueKind == JsonValueKind.Object
+                && json.RootElement.TryGetProperty("eventId", out var id)
+                && id.ValueKind == JsonValueKind.String
+                && id.TryGetGuid(out eventId);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
     /// Handles one event once: skips it if this consumer already recorded its id, otherwise applies it and records
     /// the id in one transaction. Public so tests can call it without Kafka.
     /// </summary>
-    public async Task ProcessAsync(string eventType, string eventJson, CancellationToken stoppingToken)
+    public async Task ProcessAsync(string? eventType, string? eventJson, CancellationToken stoppingToken)
     {
-        using var json = JsonDocument.Parse(eventJson);
-        var eventId = json.RootElement.GetProperty("eventId").GetGuid();
+        // Checked before the database, so only a decode failure can be skipped; database errors still retry.
+        if (!TryReadEventId(eventType, eventJson, out var eventId))
+        {
+            if (!SkipUnreadable)
+                throw new InvalidDataException($"{ConsumerName} can't read a message (event type '{eventType}')");
+            logger.LogWarning("{Consumer} skipped an unreadable message (event type '{EventType}')", ConsumerName, eventType);
+            return;
+        }
 
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
