@@ -17,7 +17,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:32 | 12:39 | Ticket 03 (#5): Queue, pick-up, `xmin` concurrency, 409 mapping, tests, code review |
 | 12:39 | 12:44 | Second review of #5 by two Claude agents plus Codex; Codex review made a standing rule |
 | 12:48 | 12:58 | Ticket 04 (#6): Reserve, approve, reject, settle; tests; review by two Claude agents plus Codex |
-| 12:58 | 13:03 | Plan parallel waves for the remaining tickets; per-worktree databases; fix a test start-up race |
+| 12:58 | 13:00 | Plan parallel waves for the remaining tickets; per-worktree databases; fix a test start-up race |
 
 ---
 
@@ -267,7 +267,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Result:** 120 tests pass (12 identity, 55 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up, 25 assess/decide), with 0 build warnings. Build time at commit: 2h10m of the 5h cap.
 - **My decision (12:59):** accepted D60–D65 as proposed, including D65 (Claimants see the Reserve), with no overrides.
 
-## Entry #17 (Thu 29 Oct 13:03): remaining tickets run in parallel waves
+## Entry #17 (Thu 29 Oct 13:00): remaining tickets run in parallel waves
 
 - **Asked:** I suggested running the remaining tickets in parallel, with several sub-agents using the same workflow, and asked the AI what it thought. I also asked that this decision and the parallel work be logged.
 - **AI proposed:** yes, but in waves set by the blocking links, not all at once:
@@ -283,6 +283,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **`ng new` (#10):** needs my OK before any npm package is added.
 - **My decision (12:59):** go ahead with wave 1 as proposed; `ng new` may install its default packages only.
 - **Bug found while preparing, fixed:** with a brand-new test database, 4 of 120 tests failed ("relation \"outbox\" already exists"). xUnit runs test classes in parallel, each with its own `ApiFactory`, and each host applies migrations as it starts, so they raced to create the same tables. It never showed before because `claims_test` already existed, but it would have broken the fresh-clone check (#14) and every new worktree database. `ApiFactory` now starts hosts one at a time. That passed three runs on fresh databases, plus a run on the existing one.
-- **Result:** 120 tests pass, with 0 build warnings. Build time at commit: 2h15m of the 5h cap.
+- **Result:** 120 tests pass, with 0 build warnings. Build time at commit: 2h12m of the 5h cap.
+- **AI slip, fixed:** it first wrote this entry as 13:03 without running `date`; `date` said 13:00, and the entry, time log and build time were corrected in the next commit.
 - **Questions for me:** _(pending Jay)_ my reasons for D60–D65 and for running in parallel waves.
 
