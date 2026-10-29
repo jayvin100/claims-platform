@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { EMPTY, catchError, forkJoin, switchMap, timer } from 'rxjs';
-import { formatAmount, problemMessage } from '../claims';
+import { EMPTY, Observable, catchError, forkJoin, map, of, switchMap, timer } from 'rxjs';
+import { formatAmount, problemMessage, statusLabels } from '../claims';
 import { DemoUser } from '../identity/demo-user';
 import { UsersApi } from '../identity/users-api';
 import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports-api';
@@ -15,27 +15,37 @@ import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports
   selector: 'app-dashboard',
   template: `
     <h1>Dashboard</h1>
-    <p class="note">These figures are fed by events, so they can lag the live Claims by a few seconds.</p>
+    <p class="note">
+      These figures are fed by events, so they can lag the live Claims by a few seconds.
+    </p>
 
     @if (error()) {
       <p class="error">{{ error() }}</p>
     }
 
     @if (workload(); as workload) {
-      <h2>Workload</h2>
-      <p>Submitted Claims nobody has picked up: <strong>{{ workload.unassignedSubmitted }}</strong></p>
+      <h2>Team Workload</h2>
+      <p>
+        Submitted Claims nobody has picked up: <strong>{{ workload.unassignedSubmitted }}</strong>
+      </p>
       @if (officerRows().length === 0) {
         <p>No Officers to show yet.</p>
       } @else {
         <table>
+          <!-- Workload is the open Claims; Settled and Rejected sit beside it as the Officer's output (D77). -->
           <thead>
             <tr>
+              <th></th>
+              <th colspan="3">Open (Workload)</th>
+              <th colspan="2">Output</th>
+            </tr>
+            <tr>
               <th>Officer</th>
-              <th>Under Review</th>
-              <th>Info Requested</th>
-              <th>Approved</th>
-              <th>Settled</th>
-              <th>Rejected</th>
+              <th>{{ statusLabels.UnderReview }}</th>
+              <th>{{ statusLabels.InfoRequested }}</th>
+              <th>{{ statusLabels.Approved }}</th>
+              <th>{{ statusLabels.Settled }}</th>
+              <th>{{ statusLabels.Rejected }}</th>
             </tr>
           </thead>
           <tbody>
@@ -77,7 +87,9 @@ import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports
           }
         </tbody>
       </table>
-      <p class="note">Unreserved: open Claims with no Reserve yet, so they are not in Open Reserves.</p>
+      <p class="note">
+        Unreserved: open Claims with no Reserve yet, so they are not in Open Reserves.
+      </p>
     }
 
     @if (!workload() && !exposure() && !error()) {
@@ -107,42 +119,41 @@ export class Dashboard {
   protected readonly workload = signal<Workload | null>(null);
   protected readonly exposure = signal<MarketExposure[] | null>(null);
   protected readonly error = signal('');
-  /** The seeded Officers, from GET /api/users; Reporting itself only knows ids. */
-  private readonly officers = signal<DemoUser[]>([]);
+  /** The seeded Officers, from GET /api/users; Reporting itself only knows ids. null until loaded. */
+  private readonly officers = signal<DemoUser[] | null>(null);
   protected readonly formatAmount = formatAmount;
+  protected readonly statusLabels = statusLabels;
 
   /**
    * Every Officer, sorted by name, with zeros for anyone Reporting hasn't seen pick up a Claim
    * (story 51: each Officer). An id Reporting knows but the users list doesn't is shown as the id.
    */
   protected readonly officerRows = computed(() => {
-    const counts = new Map((this.workload()?.officers ?? []).map((o) => [o.officerId, o]));
-    const known = this.officers()
-      .map((user) => ({ ...(counts.get(user.id) ?? noClaims(user.id)), name: user.name }))
+    const officers = this.officers() ?? [];
+    const workloadById = new Map((this.workload()?.officers ?? []).map((o) => [o.officerId, o]));
+    const known = officers
+      .map((user) => ({
+        ...(workloadById.get(user.id) ?? emptyWorkload(user.id)),
+        name: user.name,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
     // Unknown ids go last, so they don't sort in among the names.
-    const unknown = [...counts.values()]
-      .filter((o) => !this.officers().some((user) => user.id === o.officerId))
+    const knownIds = new Set(officers.map((user) => user.id));
+    const unknown = [...workloadById.values()]
+      .filter((o) => !knownIds.has(o.officerId))
       .map((o) => ({ ...o, name: o.officerId }));
     return [...known, ...unknown];
   });
 
   constructor() {
-    // The seeded users don't change, so they are loaded once. If this fails, only Reporting's ids show.
-    this.users
-      .list()
-      .pipe(
-        catchError(() => EMPTY),
-        takeUntilDestroyed(),
-      )
-      .subscribe((users) => this.officers.set(users.filter((u) => u.role === 'Officer')));
-
     // Poll every 5 seconds (D30), both reports together. switchMap drops a slow request when the next
     // one starts, and takeUntilDestroyed stops the timer when the Officer leaves the screen.
+    // The seeded users don't change, so they are fetched in the same poll only until they load once;
+    // after that the poll reuses them. Until then nothing shows, so no Officer is ever missing (D75).
     timer(0, 5000)
       .pipe(
         switchMap(() =>
-          forkJoin([this.reports.workload(), this.reports.exposure()]).pipe(
+          forkJoin([this.reports.workload(), this.reports.exposure(), this.loadOfficers()]).pipe(
             // A failed poll shows a message and leaves the last figures on screen; the next tick tries again.
             catchError((err: HttpErrorResponse) => {
               this.error.set(problemMessage(err));
@@ -152,15 +163,25 @@ export class Dashboard {
         ),
         takeUntilDestroyed(),
       )
-      .subscribe(([workload, exposure]) => {
+      .subscribe(([workload, exposure, officers]) => {
+        this.officers.set(officers);
         this.workload.set(workload);
         this.exposure.set(exposure);
         this.error.set('');
       });
   }
+
+  /** The Officers already loaded, or a fetch of them from GET /api/users. */
+  private loadOfficers(): Observable<DemoUser[]> {
+    const officers = this.officers();
+    if (officers) {
+      return of(officers);
+    }
+    return this.users.list().pipe(map((users) => users.filter((u) => u.role === 'Officer')));
+  }
 }
 
 /** The row for an Officer who has no Claims in Reporting yet. */
-function noClaims(officerId: string): OfficerWorkload {
+function emptyWorkload(officerId: string): OfficerWorkload {
   return { officerId, underReview: 0, infoRequested: 0, approved: 0, settled: 0, rejected: 0 };
 }
