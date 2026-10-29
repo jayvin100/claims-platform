@@ -425,3 +425,35 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - After rewinding the consumer group 7 messages and restarting, every event was skipped as already processed, with no new emails.
 - **Result:** 166 tests pass. Merged to main by fast-forward (`1eff56a`..`f5348ff`). Build time at merge: 2h40m of the 5h cap.
 - **Next:** #9 (the read model) launched at 13:28 in its own worktree (`claims_t9`, port 5209), now that #7 and #8 are on main.
+
+## Entry #27 (Thu 29 Oct 13:34): ticket 10, Officer screens (#12, wave 2)
+
+- **Built by a wave-2 agent** in its own worktree (13:23–13:29):
+  - **Code:** a typed `OfficerApi`; the Queue (Claim Number, Market, type, status, age, a "Mine" marker); Claim detail at `/queue/:id` (details, Reserve, Info Requests, Claim History).
+  - **Actions:** shown only when the status and the Assigned Officer allow them.
+  - **Polling:** both screens poll every 5 s and stop when you leave.
+  - **Smoke check:** headless Chrome against its own API went through pick up, Reserve, request info, an answer via curl, approve and settle. A second Officer saw a plain message.
+- **Bugs the agent found and fixed:**
+  - The Reserve showed as "SGD1,500.00" but the timeline shows "SGD 1,500.00"; it now matches.
+  - A poll in flight could overwrite an action's result; now an action fetches fresh and drops the older poll.
+- **Reviews:** Claude spec, Claude standards and Codex, run in parallel.
+  - **Codex, hard issue:** the Reserve input had `min="0.01" step="0.01"`, so it blocked valid amounts like 1000.005, which D61 allows. Fixed: any amount greater than zero.
+  - **Codex, hard issue:** the `number: '1.2-10'` pipe rounded the amount shown. Fixed with one `formatAmount` that shows it like the timeline.
+  - **Claude spec, judgement calls:**
+    - Story 34 wants a clear message when another Officer picked a Claim up first. A losing pick-up now says "Another Officer picked up this Claim first."
+    - A Settled or Rejected Claim held by another Officer read as if it could still be acted on. It now reads as final first.
+    - The detail screen kept polling after a 404; it now stops.
+  - **Claude standards, judgement calls, fixed:**
+    - The Claim types and the error and status helpers were about to be duplicated with #11. They moved to a shared `web/src/app/claims.ts`.
+    - The template called the HTTP service directly for some actions. Every action is now a component method.
+    - `claims` (a URL) is renamed to `claimsUrl`.
+    - The "Timeline" heading is now "Claim History", the glossary term.
+  - **Left as is:**
+    - Story 35 says "open any Claim". The detail route and the API allow any Claim, but the UI only links from the Queue, so a Claim held by another Officer is reached only by URL.
+    - The polling code is repeated in the two screens.
+    - `@if (claim(); as claim)` shadows the signal's name. The fixer found a shorter name read worse.
+    - Forms read the input element directly instead of using Angular forms.
+    - **Found by Codex on #11, applies here too:** amounts are parsed as JS numbers, so very large or very precise Reserves lose digits in the UI only. This goes to the wave-2 council.
+- **Fixer agent (13:31–13:34):** applied the fixes. Its smoke check: a 1000.005 Reserve was accepted and shown unrounded, a 0 Reserve was refused, the losing pick-up message showed, the Settled Claim read as final, and a missing Claim was fetched once.
+- **Implementation calls for the wave-2 council:** Approve is disabled until a Reserve is set; the detail lives at `/queue/:id`; the Assigned Officer shows as "You", "Another Officer" or "Nobody yet"; forms read the input element.
+- **Result:** `ng build` is clean, and the API code is unchanged (166 tests). Merged to main by rebase and fast-forward (`3641773`, `7a00789`). Build time at merge: 2h46m of the 5h cap.
