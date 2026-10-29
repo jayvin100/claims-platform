@@ -1009,3 +1009,33 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - **Unreviewed code commits:** `a2eba4a` (#40), `1d70043` (#42) and `764dd09` (#48) had no separate review at the time. The final review team covers them.
   - **Entry #31's open doubt:** the fixer asked whether the old-duplicate test passes because of the processed-id check or the unique key. It is still not checked. The Reporting and tests reviewers confirmed the behaviour (an old redelivery does not bring a Reserve back), but not which mechanism causes it.
 - **Open, and needs me:** approval condition (3) of D89, rehearsing in my own words. Still not rehearsed: per-Claim ordering (D69/D84) and D87. My D80 answer described a double approve rather than a stale tab, and there's no retry on record.
+
+## Entry #59 (Thu 29 Oct 15:21): final-review council (D91–D93); value checks and docs fixes merged
+
+- **Council on three questions from the final review** (Claude A simplicity, Claude B correctness, Codex):
+  - **Q1, a stale tab answers the wrong Info Request (Codex, HARD).** All three picked (a), a known limit, in round 1. Claude B's framing was adopted: it is its own limit, not the Claimant side of D80, because it saves an answer against the wrong question. Logged as **D91**, with a README Known limits row and a What's next line.
+  - **Q2, slow responses starve polling (Codex HARD, Claude Angular JUDGEMENT).**
+    - Round 1: Claude A and Codex picked (b) `timeout(4500)` plus `TimeoutError` handling; Claude B picked (a), a known limit.
+    - Round 2: unanimous (b). Claude B moved because its one condition, the `TimeoutError` branch in `problemMessage`, was included.
+    - All three rejected `exhaustMap`: it would ignore the refresh after an action, so an older read could overwrite the result.
+    - Logged as **D92**. An Angular fixer is applying it.
+  - **Q3, a NUL character still stalls a consumer (found by the value-check fixer).** All three picked (b), one check. Claude B and Codex proposed checking the read event's string properties; Claude A proposed a raw-text check. 2 to 1 for the property check, because raw text would dead-letter an Officer's question holding the literal text `\u0000`. Logged as **D93**.
+- **Value-check fix merged** (`3359444`, `484eb52`):
+  - Values the database can't store are now poison: an undefined Market, a currency that isn't 3 characters, a claim number over 20, and NUL (D93). Enum numbers are refused when reading.
+  - New tests: the D60 order (403 before 409 before the domain 400), and a database error throwing without dead-lettering.
+  - The stale module READMEs are fixed.
+  - 211 tests pass on main.
+- **Review of the value-check fix, Claude and Codex in parallel:** no hard issues.
+  - Both said the database-error test proves "throws, nothing dead-lettered", not "retried". Renamed `A_database_error_throws_without_dead_lettering`, and it no longer depends on how EF wraps the error.
+  - Claude: a hand-made comma list of Markets (`"HK, MY"`) reads as another real Market (TH). No code was added for it; the comment says so.
+  - Claude: one over-long comment line, wrapped.
+  - These follow-ups and the NUL check were not reviewed again. They were small and dictated by the reviewers and the council.
+- **Docs fix merged** (`d8871d6`, `926ae36`):
+  - D68, D74 and D79 are marked superseded by D90.
+  - What a real login changes now has one wording in the README, ADR-0006 and two code comments.
+  - GLOSSARY: the Claimant can still answer an Info Request.
+  - "What's next" now holds what the docs point to.
+  - Dead letters: "older status or Reserve", plus the replay steps and Ctrl+C.
+  - The startup topics, the `dotnet tool restore` placement, the Dashboard caption, the Kafka-tests wording and the Reporting split caveat are corrected.
+  - The D91 row was added.
+  - I checked the diff; there was no separate review agent, because these were the reviewers' own wording.
