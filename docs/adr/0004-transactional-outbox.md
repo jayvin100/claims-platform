@@ -1,6 +1,6 @@
 # Transactional outbox between the database and Kafka
 
-Domain events are written to an outbox table in the same database transaction as the Claim change, and a background worker publishes pending rows to Kafka and marks them sent. With the outbox, a REST request never touches the broker, and a crash can delay an event but never lose it.
+Domain events are written to an outbox table in the same database transaction as the Claim change, and a background worker publishes pending rows to Kafka and marks them sent. With the outbox, a REST request never touches the broker, and a crash between saving and publishing can delay an event but not lose it. It closes that one gap; it still relies on Postgres being durable, the worker retrying, Kafka acknowledging and retaining messages, and the consumers running.
 
 ## Considered Options
 
@@ -10,4 +10,5 @@ Domain events are written to an outbox table in the same database transaction as
 ## Consequences
 
 - Delivery is at-least-once: the worker can publish a row and die before marking it sent. Every event carries a unique id and each consumer skips ids it has already processed.
+- Outbox rows carry an auto-incrementing sequence number, and the single worker publishes in that order (see ADR-0005).
 - Events reach Kafka a moment after the change is saved, which adds to the lag in the Exposure and Workload views.

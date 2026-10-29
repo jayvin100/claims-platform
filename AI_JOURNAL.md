@@ -7,7 +7,11 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 
 | Start | End | What |
 |-------|-----|------|
-| Thu 29 Oct 10:48 | | Build session starts. Toolchain check, repo skeleton, design confirmation |
+| Thu 29 Oct 10:48 | 10:56 | Toolchain check, repo skeleton, workflow choice, skills setup |
+| 10:56 | 11:12 | Design grilling (32 decisions), spec, tickets |
+| 11:12 | 11:35 | Move tracking to GitHub Issues under a wayfinder map; repo made public; Codex review prompt |
+| 11:35 | 11:53 | Codex runs its independent review (clock kept running) |
+| 11:53 | 12:02 | Weigh the Codex findings, apply decisions to spec, tickets, ADRs |
 
 ---
 
@@ -108,3 +112,16 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - It must sketch its own design from the brief **before** reading our plan, so it doesn't just agree.
   - It then gives a verdict on each of D1–D32 and the ADRs, checks the spec and tickets, flags technical risks on this machine (marked verified or from memory), proposes a cut list, writes the hardest panel questions, and gives honest feedback on this journal, including whether my acceptances look like rubber-stamping.
 - **Tracked** as wayfinder ticket #15 (`wayfinder:task`, claimed by me) under the map #1. It graduated out of the map's "Not yet specified" section.
+
+## Entry #11 (Thu 29 Oct 12:02): weighing the Codex review
+
+- **Codex's verdict:** keep the architecture. Stop adding planning. It found real gaps in the event contract and startup, and flagged that my grilling acceptances (31 of 31) and my outbox reason looked like rubber-stamping. It also corrected the clock: on a continuous count the 5-hour cap ends at **15:48 today**, not tomorrow.
+- **The AI put six decisions to me**, giving its own view where it differed from Codex:
+  - **Outbox:** Codex said build it only within a 15–20 minute gate; the AI said keep it. **I chose to build it.** _(Reason beyond "yes": pending Jay.)_
+  - **Exposure:** rename the figure to Open Reserves and add an Unreserved count, so unpriced claims don't show as zero. **Accepted.**
+  - **Cuts:** Codex proposed an ordered cut list. **Overrode: no cuts.** My reason: we can make it in time.
+  - **Time budget:** Codex proposed 120 more minutes with checkpoints. **Adopted as the ceiling.** I expect to finish under it.
+  - **No-trade-off fixes:** Claimant id on ClaimPickedUp, outbox sequence ordering with a single publisher, per-consumer dedup, offsets committed after processing, background topic retry, all Kafka off in tests, a two-context `xmin` test, Swagger and CORS exempt from identity, and corrected ticket links. **Accepted.** My reason: a no-brainer.
+  - **Dependencies:** pinned (Npgsql EF 10.0.3, Confluent.Kafka 2.16.0, Angular CLI 22.2.5, local `dotnet-ef`); the rest at the latest stable version, recorded when added. **Accepted.** My reason: if anything breaks later, it won't be because a dependency version changed.
+- **Applied:** spec #2 and tickets #3, #4, #5, #7, #8, #9 and #13 updated, plus links on #11 and #14. Glossary gains Open Reserves and Unreserved Claim. ADR-0002, 0004 and 0005 are qualified where Codex showed they promised too much. Decision log D33–D37 added. The time log is now a running record.
+- **The AI noted where it disagreed with Codex:** on the outbox, because without one the request must call Kafka, which needs a fake publisher in tests and couples REST to the broker.

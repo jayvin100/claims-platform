@@ -67,9 +67,16 @@ _Avoid_: Closed, cancelled, withdrawn, pending
 The Officer's estimate of what a Claim will cost, in its Market's currency. It can be revised during review and is paid in full on settlement.
 _Avoid_: Estimate, payout, settlement amount
 
-**Exposure**:
-The total Reserve on Claims that are neither Settled nor Rejected, per Market.
+**Open Reserves**:
+The total Reserve recorded on Claims that are neither Settled nor Rejected, per Market. A recorded figure, not a full liability estimate.
 _Avoid_: Liability, outstanding amount
+
+**Unreserved Claim**:
+An open Claim with no Reserve yet: exposure nobody has priced.
+
+**Exposure**:
+The per-Market picture of outstanding claims: the open Claim count, the Open Reserves and the number of Unreserved Claims.
+_Avoid_: Liability
 
 **Workload**:
 The Claims each Officer currently holds that are neither Settled nor Rejected.

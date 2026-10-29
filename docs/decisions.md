@@ -49,7 +49,7 @@ The brief lists questions to consider. This is where each one is answered.
 | D14 | One topic, `claim-events`, keyed by Claim id, event type in a header. | A topic per event type | Kafka orders messages only within a partition; keying by Claim id keeps each Claim's events in order. ADR-0005. |
 | D15 | Transactional outbox: events are saved with the change and published by a background worker. | Publishing after `SaveChanges`; change data capture | A crash can delay an event but never lose it, and REST requests never touch the broker. CDC is another system to run. ADR-0004. |
 | D16 | Every event has a unique id; consumers record processed ids in the same transaction as their update and skip repeats. | Assuming exactly-once delivery | The outbox makes delivery at-least-once, so duplicates will happen; this makes them harmless. |
-| D17 | Read model: Exposure per Market (open Claims, total Reserve); Workload per Officer (open Claims by status, Settled and Rejected counts); unassigned count. | Time-based measures such as average time to settle | Covers the brief's "workload and performance" and "exposure" from event data alone. More measures are under what's next. |
+| D17 | Read model: Exposure per Market (open Claims, Open Reserves, Unreserved count; changed after the Codex review, see D33); Workload per Officer (open Claims by status, Settled and Rejected counts); unassigned count. | Time-based measures such as average time to settle | Covers the brief's "workload and performance" and "exposure" from event data alone. More measures are under what's next. |
 | D18 | The Queue reads live data over REST, oldest first. | Reading the Queue from the read model | Officers act on the Queue immediately; stale data would cause pointless 409s. |
 | D32 | Eight events: ClaimSubmitted, ClaimPickedUp, ReserveSet, InfoRequested, InfoProvided, ClaimApproved, ClaimRejected, ClaimSettled. Each carries event id, Claim id, Market, time, and the fields consumers need (Assigned Officer, Reserve and currency, Claimant id). | The six events in the original prompt, with a combined ClaimDecided | Without ReserveSet the read model can't calculate Exposure. Separate Approved/Rejected events each mean one thing, so consumers don't branch on a field. |
 | D20 | The Claimant's timeline comes from Claim History, saved with each change and read over REST. Notifications only go to a log table and the console. | Building the timeline from events; showing notifications in the UI | The timeline must be exact and immediate. The simulated email shows the "nobody waits" side of Kafka without another screen. |
@@ -68,7 +68,7 @@ The brief lists questions to consider. This is where each one is answered.
 |---|---|---|---|
 | D24 | xUnit tests for every Claim rule; `WebApplicationFactory` integration tests on a test database in the Compose Postgres (ownership, pick-up conflict, outbox row written); one consumer idempotency test; no Angular tests. | Testcontainers; a fake Kafka publisher; frontend tests | The conflict check needs real Postgres. The outbox means tests check a table instead of faking Kafka. The risk is in the backend rules. |
 | D25 | Compose runs Postgres and Kafka only; the API (`dotnet run`) and Angular (`npm start`) run on the host. The API migrates, seeds and creates the topic on startup in Development. | Containerising everything | Four commands and no Dockerfiles to debug against the deadline. Full Compose is under what's next. |
-| D31 | Dependencies: Npgsql EF Core provider, EF Core Design, Confluent.Kafka, Microsoft.AspNetCore.OpenApi, Swashbuckle Swagger UI, xunit, Mvc.Testing; npm only what `ng new` installs. | Hand-rolling any of these | Each one replaces code we'd otherwise write. Swagger UI lets the panel drive the API without the frontend. |
+| D31 | Dependencies, pinned: Npgsql EF Core provider 10.0.3, Confluent.Kafka 2.16.0, Angular CLI 22.2.5, a local `dotnet-ef` tool; the rest (EF Core Design, Microsoft.AspNetCore.OpenApi, Swashbuckle Swagger UI, xunit, test SDK, Mvc.Testing) at the latest compatible stable version, recorded in the journal when added. npm: only what `ng new` installs. | Hand-rolling any of these; floating versions | Each one replaces code we'd otherwise write. Pinning means a future break won't come from a dependency version changing. |
 
 ## Frontend
 
@@ -78,3 +78,15 @@ The brief lists questions to consider. This is where each one is answered.
 | D28 | Standalone components, signals for state, a route guard per role, plain CSS. | NgRx; Angular Material | Signals are Angular's built-in state; NgRx is overkill for four screens. Material adds a dependency and a learning curve. |
 | D29 | Screens in build order: role picker; Claimant list and submit; Claimant detail with timeline and Info Request answers; Officer Queue and detail with actions; dashboard (cut first). | Building the dashboard earlier | Screens 1–4 are the two user journeys. The dashboard is the visible proof of the Kafka read model, and Swagger can stand in for it. |
 | D30 | Poll every 5 seconds on detail and list screens. | SSE; SignalR | A few lines with an RxJS timer and no server changes; claims move in hours, not seconds. SSE is under what's next. |
+
+## After the Codex review (#15)
+
+Codex reviewed the plan independently ([#15](https://github.com/jayvin100/claims-platform/issues/15)). Jay's decisions on its findings:
+
+| # | Decision | Chosen over | Why |
+|---|---|---|---|
+| D33 | Exposure reports Open Reserves plus a count of Unreserved Claims per Market. | One "Exposure" total of Reserves | Submitted Claims have no Reserve, so a single total would hide unpriced exposure as zero. |
+| D34 | Keep building the outbox (D15) unconditionally. | Codex: build it only within a 15–20 minute gate, else publish after save | Jay's call; see AI_JOURNAL entry #11. |
+| D35 | No scope cuts planned; Codex's 120-minute budget is the ceiling. | Codex's ordered cut list | Jay expects to finish inside the budget. The 3h and 4h warnings still apply. |
+| D36 | Event and delivery fixes: Claimant id on ClaimPickedUp; outbox ordered by sequence number with one publisher that stops on failure; per-consumer processed-event records; offsets committed after processing; topic creation retried in the background; all Kafka off in tests; a two-context `xmin` test; Swagger and CORS preflight exempt from identity. | The original spec wording | Codex found real gaps with no trade-off to weigh. |
+| D37 | Ticket links: #11 also waits on #6; the README ticket #14 no longer waits on the dashboard #13. | The original links | #11 renders Reserve and rejection, which #6 builds. Final verification shouldn't wait on a single screen. |
