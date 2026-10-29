@@ -800,7 +800,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - `/implement-spec` and `/retro` were in the plan from entry #2, but the parallel waves and the councils replaced them.
   - `/codebase-design` was only pulled in by `/tdd` as a reference, never run as its own session.
 
-## Entry #47 (Thu 29 Oct 14:39): last improvements chosen
+## Entry #47 (Thu 29 Oct 14:38): last improvements chosen
 
 - **Asked:** "anything else i am missing here? any improvements you can think of?"
 - **AI proposed five, most important first:**
