@@ -901,3 +901,17 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
     9. a live fresh-clone run that follows the README.
   - **Codex, two reviews in parallel:** the whole codebase, and the docs plus the HTML.
   - **After the reviews:** fixers apply the findings, and any decision goes to a council or to me.
+
+## Entry #55 (Thu 29 Oct 15:06): D90 merged with its review fixes; /simplify queued
+
+- **Merged:** `384f737` and `c1da0cb` were rebased onto main and fast-forwarded. 196 tests pass on main; pushed.
+- **D90 review findings, Claude and Codex, and what the fixer did:**
+  - **Missing fields read as nulls** (both reviewers; Codex showed a `ClaimSubmitted` holding only `eventId`): events are now read in one place, `ClaimEventConsumer.ReadEvent`, with `RespectRequiredConstructorParameters` and `RespectNullableAnnotations` on. Missing, null and wrong-type fields go to the dead-letter topic. Tests cover all three; with the settings off, the missing and null cases fail.
+  - **Ignored types skipped the type check** (Codex: a `ReserveSet` with `"claimId":5` was recorded as processed): ignored types are now read and checked before being recorded. Tested.
+  - **A null `event-type` header threw outside the poison path** (Codex): it now counts as missing and goes to the dead-letter topic. Tested.
+  - **A test name claimed a retry loop it didn't test** (both): renamed `A_failed_dead_letter_send_throws`.
+  - **A replayed dead letter can move Reporting back to an older status** (both): a line added to the README and ADR-0005.
+  - **Two stale comments; a wide `JsonException` catch** (Claude): updated; the catch is gone.
+  - **Found by the fixer:** `ReportingClaim`'s no-rule case retried forever; it now goes to the dead-letter topic. A failed test run could leave the shared poison event id in the test database; the setup now deletes it first.
+- **Fixer's live recheck:** the missing-field message and the null-header message both landed in `claim-events-dlq` with the dlq headers. A normal Claim then sent its email and moved the Exposure count. It stopped the API by its PID.
+- **/simplify requested:** "this whole project once the whole team of agents are done reviewing/auditing and fixing any issues. this may be not needed but we will see when the simplify agent team reports back". It runs after the full review team's fixes merge. The findings come to me before anything changes.
