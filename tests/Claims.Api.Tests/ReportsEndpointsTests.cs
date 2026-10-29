@@ -22,13 +22,13 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
     public async Task Exposure_drops_when_a_Claim_is_settled()
     {
         var claim = (await factory.SubmitAs(Aisha, "SG")).Id;
-        (await factory.Send(Priya, "POST", claim, "pick-up", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", claim, "pick-up")).EnsureSuccessStatusCode();
         (await factory.Send(Priya, "PUT", claim, "reserve", """{ "amount": 1500.50 }""")).EnsureSuccessStatusCode();
-        (await factory.Send(Priya, "POST", claim, "approve", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", claim, "approve")).EnsureSuccessStatusCode();
         await DeliverOutboxFor(claim);
 
         var before = await ExposureAs(Priya);
-        (await factory.Send(Priya, "POST", claim, "settle", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", claim, "settle")).EnsureSuccessStatusCode();
         await DeliverOutboxFor(claim);
         var after = await ExposureAs(Priya);
 
@@ -59,10 +59,10 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
     {
         var unassigned = (await factory.SubmitAs(Aisha, "PH")).Id;
         var priyas = (await factory.SubmitAs(Aisha, "SG")).Id;
-        (await factory.Send(Priya, "POST", priyas, "pick-up", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", priyas, "pick-up")).EnsureSuccessStatusCode();
         (await factory.Send(Priya, "POST", priyas, "info-requests", """{ "question": "Please send the repair quote." }""")).EnsureSuccessStatusCode();
         var marcuses = (await factory.SubmitAs(Daniel, "HK")).Id;
-        (await factory.Send(Marcus, "POST", marcuses, "pick-up", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Marcus, "POST", marcuses, "pick-up")).EnsureSuccessStatusCode();
         (await factory.Send(Marcus, "POST", marcuses, "reject", """{ "reason": "Not covered" }""")).EnsureSuccessStatusCode();
         await DeliverOutboxFor(unassigned, priyas, marcuses);
 

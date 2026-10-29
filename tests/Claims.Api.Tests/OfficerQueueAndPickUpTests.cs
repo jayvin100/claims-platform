@@ -30,7 +30,7 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Fact]
-    public async Task Picking_up_a_Claim_that_is_no_longer_Submitted_is_refused_with_409_naming_the_rule()
+    public async Task Picking_up_a_Claim_that_is_no_longer_Submitted_is_refused_with_409_saying_it_is_already_picked_up()
     {
         var submitted = await factory.SubmitAs(Aisha);
         await PickUpAs(Priya, submitted.Id);
