@@ -178,8 +178,8 @@ public abstract class ClaimEventConsumer(
     /// <summary>
     /// Reads a message into its event, or throws <see cref="PoisonMessageException"/> with the reason if it can't be
     /// read: no event type, an empty value, a type that isn't a claim event, or JSON that doesn't fit that type
-    /// (including a value the database could never store, see CheckValues). Pure, with no database, so a database error can never be mistaken for poison. Public so tests read events
-    /// exactly as the consumers do.
+    /// (including a value the database could never store, see CheckValues). Pure, with no database, so a database
+    /// error can never be mistaken for poison. Public so tests read events exactly as the consumers do.
     /// </summary>
     public static ClaimEvent ReadEvent(string? eventType, string? eventJson)
     {
@@ -205,9 +205,10 @@ public abstract class ClaimEventConsumer(
         return claimEvent;
     }
 
-    // Valid JSON can still hold a value no Claim could have: one the database would refuse on every retry, or a
-    // Market that Reporting has no currency for. That counts as JSON that doesn't fit, so it is poison too. The limits
-    // are the Claims table's columns, where every real event's values come from.
+    // Valid JSON can still hold a value the database would refuse on every retry, or a Market that Reporting has no
+    // currency for. That counts as JSON that doesn't fit, so it is poison too. The limits are the Claims table's
+    // columns, where every real event's values come from. Not caught: a hand-made comma list of Markets reads as
+    // flags, and can land on another, real Market ("HK, MY" is TH); that is stored without error.
     private static void CheckValues(string eventType, ClaimEvent claimEvent)
     {
         if (!Enum.IsDefined(claimEvent.Market))
@@ -224,6 +225,9 @@ public abstract class ClaimEventConsumer(
         };
         if (currency is not null && currency.Length != AppDbContext.CurrencyLength)
             throw new PoisonMessageException($"{eventType} has a currency that isn't {AppDbContext.CurrencyLength} characters");
+        // Postgres refuses a NUL character in text, so an event holding one would be retried for ever.
+        if (claimEvent.GetType().GetProperties().Any(p => p.GetValue(claimEvent) is string s && s.Contains('\0')))
+            throw new PoisonMessageException($"{eventType} has a NUL character");
     }
 
     /// <summary>

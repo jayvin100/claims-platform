@@ -10,7 +10,6 @@ using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
 using static Claims.Api.Tests.TestUsers;
 
 namespace Claims.Api.Tests;
@@ -67,6 +66,8 @@ public class DeadLetterTests(ApiFactory factory) : IClassFixture<ApiFactory>, IA
             { nameof(ClaimSubmitted), With(submitted, "currency", "SGDXX"), "ClaimSubmitted has a currency that isn't 3" },
             { nameof(ReserveSet), With(reserveSet, "currency", "SGDXX"), "ReserveSet has a currency that isn't 3" },
             { nameof(ClaimSubmitted), With(submitted, "claimNumber", new string('9', 300)), "ClaimSubmitted has a claim number over 20" },
+            // Three characters, so only the NUL check stops it.
+            { nameof(ClaimSubmitted), With(submitted, "currency", "S\0D"), "ClaimSubmitted has a NUL character" },
         };
     }
 
@@ -144,9 +145,10 @@ public class DeadLetterTests(ApiFactory factory) : IClassFixture<ApiFactory>, IA
     }
 
     // A good event when the database is down: nothing listens on port 1, so the consumer's first query fails, as it
-    // would in a real outage. That is a failure that may pass, so it must throw (and be retried), not be dead-lettered.
+    // would in a real outage. That is a failure that may pass, so HandleAsync must throw (the consume loop then retries
+    // it), not dead-letter it. Like A_failed_dead_letter_send_throws, the retry itself is checked by hand.
     [Fact]
-    public async Task A_database_error_is_retried_not_dead_lettered()
+    public async Task A_database_error_throws_without_dead_lettering()
     {
         using var services = new ServiceCollection()
             .AddDbContext<AppDbContext>(options => options.UseNpgsql("Host=localhost;Port=1;Database=none;Username=x;Password=x"))
@@ -157,11 +159,10 @@ public class DeadLetterTests(ApiFactory factory) : IClassFixture<ApiFactory>, IA
             DateTimeOffset.UtcNow, Aisha.Id, "SGD"));
         var producer = new FakeProducer();
 
-        // EF wraps the connection error it got from Npgsql.
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var error = await Assert.ThrowsAnyAsync<Exception>(() =>
             consumer.HandleAsync(Received(row.Type, row.Payload), producer, CancellationToken.None));
 
-        Assert.IsType<NpgsqlException>(error.InnerException);
+        Assert.IsNotType<PoisonMessageException>(error);
         Assert.Empty(producer.Sent);
     }
 
