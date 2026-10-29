@@ -514,7 +514,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Outcome:** (a), 2 of 3 (D76). Claude A dissents: two sources for one fact.
 - **Q5, the meaning of Workload:** all three picked (a) in round 1: amend the glossary (D77).
 - **Accepted calls:** no member objected, so the 16 calls stand (D78). Two notes for Jay to have answers ready on: the app has two form styles, and the rejection-reason prefix couples the UI to the API's wording.
-- **Round 2 covered Q4 only,** because Q1–Q3 and Q5 were unanimous in round 1. This saved time; the council process allows it, since the result could not change.
+- **Round 2 covered Q4 only,** because Q1–Q3 and Q5 were unanimous in round 1. This is a shortcut from docs/agents/council.md, which asks for a round 2 on every question. It saved time, and a unanimous result could not change, but it is a deviation and is logged as one.
 - **Dispatched:**
   - **#9's fixer:** D74 plus one list of event types, a duplicate test that replays a status change, the D77 glossary wording, the D73 comment, the comment fixes, and D76.
   - **#13's builder:** D75.
