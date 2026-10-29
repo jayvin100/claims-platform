@@ -43,3 +43,16 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Asked:** `/ask-matt` to check where I am in the flow, then `/setup-matt-pocock-skills`.
 - **AI proposed:** the setup skill defaults to GitHub Issues because the remote is on GitHub. The AI flagged that I had already chosen local markdown in entry #2 and kept that. It recommended the default triage labels and the single-context domain-docs layout (one `GLOSSARY.md` and `docs/adr/`).
 - **Accepted:** local markdown tracker (`.scratch/<feature>/`), default labels, single-context layout. Written to `docs/agents/` plus an `## Agent skills` block in `AGENTS.md`.
+
+## Entry #4 (Thu 29 Oct 11:03): design grilling (`/grill-with-docs`)
+
+- **Asked:** grill me on the design in rounds, one decision at a time, and write down the glossary and ADRs as decisions settle.
+- **AI proposed:** 31 decisions over three rounds, each with a recommended answer. They're logged in [docs/decisions.md](docs/decisions.md) with what each was chosen over.
+- **Accepted:** all 31 recommendations. Two of them change my original prompt:
+  - Build the transactional outbox now instead of "only if time allows" (D15, ADR-0004).
+  - Don't allow rejecting a claim straight from Submitted (D5).
+- **AI challenged its own earlier proposal:** in round 3 it revisited ADR-0001 and replaced the Claims / Assessment / Reporting modules with Claims / Notifications / Reporting, because claimant and officer actions change the same Claim (D21).
+- **Directed:**
+  - Every ADR and decision must say what it was chosen over and why. The AI added "Considered Options" to the ADRs and wrote the decision log.
+  - The decisions must line up with the brief. The brief has no scored rubric, so the AI mapped each of its "questions to consider" to the decision that answers it (top of docs/decisions.md).
+- **Written:** `GLOSSARY.md`, ADRs 0001–0006, `docs/decisions.md`.
