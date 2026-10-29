@@ -678,3 +678,12 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **My outbox reason (14:10), replacing the "pending Jay" in entry #11:** no lost events. Without the outbox, a crash between saving the Claim and publishing to Kafka loses the event, and Exposure and the emails go wrong (spec story 59).
 - **On the journal-per-commit gap:** builder and fixer agents were told not to edit AI_JOURNAL.md, so that parallel branches wouldn't conflict (entry #17). The lead wrote one entry per merge instead, covering every commit in it. This trade-off was made on purpose and is logged here.
 
+
+## Entry #39 (Thu 29 Oct 14:13): council on D41–D46 and IEventPublisher
+
+- **Asked (14:10):** I sent the question "override any of D41–D46?" to the council. The council also took the `IEventPublisher` change that the Claude audit found had no decision row.
+- **Round 1:**
+  - **D41–D45:** all three members voted to accept each one.
+  - **D46:** Claude A and Codex voted to accept it. Claude B voted to accept the decision but reword the row: CORS also allows `Content-Type` and any method, not just the two identity headers. The outcome is accept unchanged, 2 of 3 (D86), with Claude B's wording point recorded as dissent.
+  - **IEventPublisher:** all three members chose (a): record that the outbox replaced it, and change no code (D87). Claude B pointed out that D24 already rejected a fake Kafka publisher. Claude B and Codex both asked the row to state the limit honestly: outbox assertions prove the event was saved, not that it was delivered, and the publish loop is checked only by hand.
+- **Process deviation, logged:** no round 2, again. The only split was over the wording of D46, and the decision itself was unanimous. council.md asks for a round 2.
