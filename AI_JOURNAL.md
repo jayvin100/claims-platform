@@ -18,6 +18,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:39 | 12:44 | Second review of #5 by two Claude agents plus Codex; Codex review made a standing rule |
 | 12:48 | 12:58 | Ticket 04 (#6): Reserve, approve, reject, settle; tests; review by two Claude agents plus Codex |
 | 12:58 | 13:00 | Plan parallel waves for the remaining tickets; per-worktree databases; fix a test start-up race |
+| 13:00 | | Wave 1 running in parallel: #7, #8, #10, each in its own worktree |
 
 ---
 
@@ -286,4 +287,11 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Result:** 120 tests pass, with 0 build warnings. Build time at commit: 2h12m of the 5h cap.
 - **AI slip, fixed:** it first wrote this entry as 13:03 without running `date`; `date` said 13:00, and the entry, time log and build time were corrected in the next commit.
 - **Questions for me:** _(pending Jay)_ my reasons for D60–D65 and for running in parallel waves.
+
+## Entry #18 (Thu 29 Oct 13:02): wave 1 launched; Confluent.Kafka approved
+
+- **Wave 1 launched (13:00–13:02):** three builder agents, each in its own git worktree with its own databases (`claims_t<N>`, `claims_test_t<N>`) and API port: #7 Info Requests, #10 Angular shell (in `web/`), and #8 Kafka and emails. Each works test-first at the spec's seams, commits to its own branch, doesn't push, and reports its bugs found and fixed and its implementation calls. The AI then runs two Claude review agents plus Codex on each branch, applies fixes, merges to main one ticket at a time, and writes the journal entry and D-numbers.
+- **AI's call:** the Angular app goes in `web/` at the repo root, because no decision named a folder. It is logged as an implementation call for my review.
+- **Package approval (13:01):** #8's acceptance criteria require me to confirm Confluent.Kafka. The AI's reason: it is Confluent's official .NET client for Kafka, it is the only package #8 needs, and the spec already lists it as approved. **I approved it**, saying the AI may add a package when there is a good reason, as long as it records the reason and my approval. The AI pinned it to an exact version (2.16.0, the latest stable). It reads my approval as covering this package only, and will still ask before any other.
+- **`ng new` (#10):** approved at 12:59 (entry #17), with its default packages only.
 
