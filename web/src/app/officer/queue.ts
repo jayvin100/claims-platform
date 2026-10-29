@@ -1,9 +1,7 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { EMPTY, TimeoutError, catchError, switchMap, timeout, timer } from 'rxjs';
-import { marketName, problemMessage, statusLabels } from '../claims';
+import { marketName, poll, problemMessage, statusLabels } from '../claims';
 import { OfficerApi, QueueItem } from './officer-api';
 
 /**
@@ -56,15 +54,6 @@ import { OfficerApi, QueueItem } from './officer-api';
     }
   `,
   styles: `
-    table {
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: 0.4rem 1rem 0.4rem 0;
-      border-bottom: 1px solid #ddd;
-    }
     tr.mine td {
       font-weight: 600;
     }
@@ -82,22 +71,13 @@ export class Queue {
   protected readonly marketName = marketName;
 
   constructor() {
-    // Poll every 5 seconds (D30). switchMap drops a slow request when the next one starts, and
-    // takeUntilDestroyed stops the timer when the Officer leaves the screen.
-    timer(0, 5000)
-      .pipe(
-        switchMap(() =>
-          this.api.queue().pipe(
-            timeout(4500), // see problemMessage
-            // A failed poll shows a message and leaves the last rows on screen; the next tick tries again.
-            catchError((err: HttpErrorResponse | TimeoutError) => {
-              this.error.set(problemMessage(err));
-              return EMPTY;
-            }),
-          ),
-        ),
-        takeUntilDestroyed(),
-      )
+    // Poll every 5 seconds (D30); takeUntilDestroyed stops it when the Officer leaves the screen.
+    // A failed poll shows a message and leaves the last rows on screen; the next tick tries again.
+    poll(
+      () => this.api.queue(),
+      (err) => this.error.set(problemMessage(err)),
+    )
+      .pipe(takeUntilDestroyed())
       .subscribe((items) => {
         this.items.set(items);
         this.error.set('');

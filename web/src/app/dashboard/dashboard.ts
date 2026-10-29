@@ -1,19 +1,7 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {
-  EMPTY,
-  Observable,
-  TimeoutError,
-  catchError,
-  forkJoin,
-  map,
-  of,
-  switchMap,
-  timeout,
-  timer,
-} from 'rxjs';
-import { formatAmount, marketName, problemMessage, statusLabels } from '../claims';
+import { Observable, forkJoin, map, of } from 'rxjs';
+import { formatAmount, marketName, poll, problemMessage, statusLabels } from '../claims';
 import { DemoUser } from '../identity/demo-user';
 import { UsersApi } from '../identity/users-api';
 import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports-api';
@@ -108,15 +96,6 @@ import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports
     }
   `,
   styles: `
-    table {
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: 0.4rem 1rem 0.4rem 0;
-      border-bottom: 1px solid #ddd;
-    }
     .note {
       color: #555;
     }
@@ -158,24 +137,16 @@ export class Dashboard {
   });
 
   constructor() {
-    // Poll every 5 seconds (D30), both reports together. switchMap drops a slow request when the next
-    // one starts, and takeUntilDestroyed stops the timer when the Officer leaves the screen.
+    // Poll every 5 seconds (D30), both reports together; takeUntilDestroyed stops it when the Officer
+    // leaves the screen. The 4.5 s timeout covers the GETs of one tick together.
     // The seeded users don't change, so they are fetched in the same poll only until they load once;
     // after that the poll reuses them. Until then nothing shows, so no Officer is ever missing (D75).
-    timer(0, 5000)
-      .pipe(
-        switchMap(() =>
-          forkJoin([this.reports.workload(), this.reports.exposure(), this.loadOfficers()]).pipe(
-            timeout(4500), // all three GETs together; see problemMessage
-            // A failed poll shows a message and leaves the last figures on screen; the next tick tries again.
-            catchError((err: HttpErrorResponse | TimeoutError) => {
-              this.error.set(problemMessage(err));
-              return EMPTY;
-            }),
-          ),
-        ),
-        takeUntilDestroyed(),
-      )
+    // A failed poll shows a message and leaves the last figures on screen; the next tick tries again.
+    poll(
+      () => forkJoin([this.reports.workload(), this.reports.exposure(), this.loadOfficers()]),
+      (err) => this.error.set(problemMessage(err)),
+    )
+      .pipe(takeUntilDestroyed())
       .subscribe(([workload, exposure, officers]) => {
         this.officers.set(officers);
         this.workload.set(workload);

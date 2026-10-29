@@ -8,7 +8,15 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Claim, ClaimType, Market, markets, problemMessage, statusLabels } from '../claims';
+import {
+  Claim,
+  ClaimType,
+  Market,
+  marketFor,
+  markets,
+  problemMessage,
+  statusLabels,
+} from '../claims';
 import { ClaimantApi } from './claimant-api';
 import { todayIn } from './display';
 
@@ -19,13 +27,15 @@ const notBlank = Validators.pattern(/\S/);
  * The incident date can't be after today on the chosen Market's clock (D47). Dates written
  * YYYY-MM-DD compare correctly as strings. With no Market chosen yet there's no clock to check
  * against, so it waits; the Market's own "required" error shows instead.
+ * It reads two fields, so it sits on the whole form, which runs it again whenever either changes.
  */
-const notInFuture: ValidatorFn = (control) => {
-  const market = markets.find((m) => m.code === control.parent?.get('market')?.value);
-  if (!market || !control.value) {
+const notInFuture: ValidatorFn = (form) => {
+  const market = marketFor(form.get('market')?.value);
+  const incidentDate = form.get('incidentDate')?.value;
+  if (!market || !incidentDate) {
     return null;
   }
-  return control.value > todayIn(market.timeZone) ? { future: true } : null;
+  return incidentDate > todayIn(market.timeZone) ? { future: true } : null;
 };
 
 /**
@@ -89,11 +99,10 @@ const notInFuture: ValidatorFn = (control) => {
           <input type="date" formControlName="incidentDate" />
         </label>
         @if (showError('incidentDate')) {
-          @if (form.controls.incidentDate.hasError('future')) {
-            <p class="error">The incident date can't be in the future.</p>
-          } @else {
-            <p class="error">Enter the date of the incident.</p>
-          }
+          <p class="error">Enter the date of the incident.</p>
+        } @else if (tried() && form.hasError('future')) {
+          <!-- The form's own error (see notInFuture), shown under the date. -->
+          <p class="error">The incident date can't be in the future.</p>
         }
 
         <label>
@@ -141,35 +150,28 @@ export class SubmitClaim {
   protected readonly markets = markets;
   protected readonly statusLabels = statusLabels;
 
-  protected readonly form = inject(NonNullableFormBuilder).group({
-    policyNumber: ['', [Validators.required, notBlank, Validators.maxLength(50)]],
-    market: ['' as Market | '', Validators.required],
-    claimType: ['' as ClaimType | '', Validators.required],
-    incidentDate: ['', [Validators.required, notInFuture]],
-    description: ['', [Validators.required, notBlank, Validators.maxLength(2000)]],
-  });
+  protected readonly form = inject(NonNullableFormBuilder).group(
+    {
+      policyNumber: ['', [Validators.required, notBlank, Validators.maxLength(50)]],
+      market: ['' as Market | '', Validators.required],
+      claimType: ['' as ClaimType | '', Validators.required],
+      incidentDate: ['', Validators.required],
+      description: ['', [Validators.required, notBlank, Validators.maxLength(2000)]],
+    },
+    { validators: notInFuture },
+  );
 
   // The chosen Market's currency, so the Claimant sees it follows from the Market (D7).
   private readonly market = toSignal(this.form.controls.market.valueChanges, { initialValue: '' });
-  protected readonly currency = computed(
-    () => markets.find((m) => m.code === this.market())?.currency ?? '',
-  );
+  protected readonly currency = computed(() => marketFor(this.market())?.currency ?? '');
 
   protected readonly sending = signal(false);
   /** Whether Submit has been pressed: field errors only show after that, not while typing. */
-  private readonly tried = signal(false);
+  protected readonly tried = signal(false);
   /** The API's refusal, if it sent one. */
   protected readonly error = signal('');
   /** The new Claim, once the API has accepted it. */
   protected readonly submitted = signal<Claim | null>(null);
-
-  constructor() {
-    // The date's validity depends on the Market's clock, so check it again when the Market changes.
-    // The form belongs to this screen, so the subscription ends with it.
-    this.form.controls.market.valueChanges.subscribe(() =>
-      this.form.controls.incidentDate.updateValueAndValidity(),
-    );
-  }
 
   protected showError(field: keyof typeof this.form.controls): boolean {
     return this.tried() && this.form.controls[field].invalid;

@@ -11,3 +11,32 @@ button {
 .error {
   color: #b00020;
 }
+
+/*
+ * The list tables on My Claims, the Queue and the Dashboard. They are the app's only tables;
+ * a new table that should look different needs its own class.
+ */
+table {
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 1rem 0.4rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+/* The details list on both Claim detail screens (the app's only dl): labels in one column, values in the next. */
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+}
+dd {
+  margin: 0;
+}
+
+/* Text people typed (descriptions, questions, answers, reasons): keep their line breaks. */
+.text {
+  white-space: pre-wrap;
+}

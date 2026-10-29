@@ -3,24 +3,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import {
-  EMPTY,
-  Observable,
-  Subject,
-  TimeoutError,
-  catchError,
-  merge,
-  switchMap,
-  takeUntil,
-  timeout,
-  timer,
-} from 'rxjs';
+import { Observable, Subject, takeUntil } from 'rxjs';
 import {
   Claim,
   dateFormat,
   dateTimeFormat,
   formatAmount,
   marketName,
+  poll,
   problemMessage,
   statusLabels,
 } from '../claims';
@@ -33,7 +23,7 @@ import { OfficerApi } from './officer-api';
  * just saves the Officer from a refusal they could have predicted.
  */
 @Component({
-  selector: 'app-claim-detail',
+  selector: 'app-officer-claim-detail',
   imports: [RouterLink, DatePipe],
   template: `
     <p><a routerLink="/queue">← Back to the Queue</a></p>
@@ -50,7 +40,13 @@ import { OfficerApi } from './officer-api';
         <dd>{{ statusLabels[claim.status] }}</dd>
         <dt>Assigned Officer</dt>
         <dd>
-          {{ !claim.assignedOfficerId ? 'Nobody yet' : isMine() ? 'You' : 'Another Officer' }}
+          @if (!claim.assignedOfficerId) {
+            Nobody yet
+          } @else if (isMine()) {
+            You
+          } @else {
+            Another Officer
+          }
         </dd>
         <dt>Reserve</dt>
         <dd>
@@ -175,19 +171,8 @@ import { OfficerApi } from './officer-api';
     }
   `,
   styles: `
-    dl {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 0.3rem 1rem;
-    }
     dt {
       font-weight: 600;
-    }
-    dd {
-      margin: 0;
-    }
-    .text {
-      white-space: pre-wrap;
     }
     .actions form {
       margin-bottom: 1rem;
@@ -228,24 +213,19 @@ export class ClaimDetail {
   private readonly notFound = new Subject<void>();
 
   constructor() {
-    // Poll every 5 seconds (D30), as on the Queue; takeUntilDestroyed stops it when the Officer leaves.
-    merge(timer(0, 5000), this.reload)
-      .pipe(
-        switchMap(() =>
-          this.api.claim(this.id).pipe(
-            timeout(4500), // see problemMessage
-            catchError((err: HttpErrorResponse | TimeoutError) => {
-              this.loadError.set(problemMessage(err));
-              if (err instanceof HttpErrorResponse && err.status === 404) {
-                this.notFound.next();
-              }
-              return EMPTY;
-            }),
-          ),
-        ),
-        takeUntil(this.notFound),
-        takeUntilDestroyed(),
-      )
+    // Poll every 5 seconds (D30), as on the Queue, and at once when reload fires; takeUntilDestroyed
+    // stops it when the Officer leaves.
+    poll(
+      () => this.api.claim(this.id),
+      (err) => {
+        this.loadError.set(problemMessage(err));
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          this.notFound.next();
+        }
+      },
+      this.reload,
+    )
+      .pipe(takeUntil(this.notFound), takeUntilDestroyed())
       .subscribe((claim) => {
         this.claim.set(claim);
         this.loadError.set('');
@@ -253,10 +233,9 @@ export class ClaimDetail {
   }
 
   protected pickUp(): void {
-    // Story 34: a 409 here means another Officer picked the Claim up between our poll and this click.
-    this.act(this.api.pickUp(this.id), {
-      conflictMessage: 'Another Officer picked up this Claim first.',
-    });
+    // Story 34: a 409 here means another Officer picked the Claim up between our poll and this click;
+    // the API's own message says so.
+    this.act(this.api.pickUp(this.id));
   }
 
   protected setReserve(input: HTMLInputElement): void {
@@ -284,14 +263,8 @@ export class ClaimDetail {
     this.act(this.api.settle(this.id));
   }
 
-  /**
-   * Sends one action. On success shows the updated Claim and runs `done` (to clear a form).
-   * On a 409, `conflictMessage` replaces the Claim's own message when the caller knows the cause.
-   */
-  private act(
-    call: Observable<Claim>,
-    options: { done?: () => void; conflictMessage?: string } = {},
-  ): void {
+  /** Sends one action. On success shows the updated Claim and runs `done` (to clear a form). */
+  private act(call: Observable<Claim>, options: { done?: () => void } = {}): void {
     this.busy.set(true);
     this.actionError.set('');
     call.subscribe({
@@ -301,14 +274,10 @@ export class ClaimDetail {
         options.done?.();
         this.reload.next();
       },
-      // A 403 (another Officer holds it) or 409 (its status changed) reads as the Claim's own message,
-      // unless the caller gave a clearer one for the 409.
+      // A 403 (another Officer holds it) or 409 (its status changed, or someone else saved it first)
+      // reads as the Claim's own message.
       error: (err: HttpErrorResponse) => {
-        this.actionError.set(
-          err.status === 409 && options.conflictMessage
-            ? options.conflictMessage
-            : problemMessage(err),
-        );
+        this.actionError.set(problemMessage(err));
         this.busy.set(false);
         this.reload.next(); // show what changed, so the controls match the Claim again
       },

@@ -1,9 +1,7 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { EMPTY, TimeoutError, catchError, switchMap, timeout, timer } from 'rxjs';
-import { marketName, problemMessage, statusLabels } from '../claims';
+import { marketName, poll, problemMessage, statusLabels } from '../claims';
 import { ClaimSummary, ClaimantApi } from './claimant-api';
 
 /** The Claimant's landing screen: all their Claims, newest first, refreshed every 5 seconds (D30). */
@@ -49,17 +47,6 @@ import { ClaimSummary, ClaimantApi } from './claimant-api';
       <p>Loading your Claims…</p>
     }
   `,
-  styles: `
-    table {
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      text-align: left;
-      padding: 0.4rem 1rem 0.4rem 0;
-      border-bottom: 1px solid #ddd;
-    }
-  `,
 })
 export class MyClaims {
   private readonly api = inject(ClaimantApi);
@@ -73,19 +60,11 @@ export class MyClaims {
   constructor() {
     // Ask now, then every 5 seconds. A failed request shows its error but doesn't stop the polling,
     // and takeUntilDestroyed stops it when the Claimant leaves the screen.
-    timer(0, 5000)
-      .pipe(
-        switchMap(() =>
-          this.api.listMine().pipe(
-            timeout(4500), // see problemMessage
-            catchError((err: HttpErrorResponse | TimeoutError) => {
-              this.error.set(problemMessage(err));
-              return EMPTY;
-            }),
-          ),
-        ),
-        takeUntilDestroyed(),
-      )
+    poll(
+      () => this.api.listMine(),
+      (err) => this.error.set(problemMessage(err)),
+    )
+      .pipe(takeUntilDestroyed())
       .subscribe((claims) => {
         this.claims.set(claims);
         this.error.set('');

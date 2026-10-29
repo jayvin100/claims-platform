@@ -4,23 +4,14 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import {
-  EMPTY,
-  Subject,
-  TimeoutError,
-  catchError,
-  merge,
-  switchMap,
-  takeUntil,
-  timeout,
-  timer,
-} from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import {
   Claim,
   dateFormat,
   dateTimeFormat,
   formatAmount,
   marketName,
+  poll,
   problemMessage,
   statusLabels,
 } from '../claims';
@@ -34,7 +25,7 @@ const rejectedPrefix = 'Claim rejected: ';
  * while one is open, a box to answer it. Refreshed every 5 seconds (D30).
  */
 @Component({
-  selector: 'app-claim-detail',
+  selector: 'app-claimant-claim-detail',
   imports: [DatePipe, ReactiveFormsModule, RouterLink],
   template: `
     <p><a routerLink="/my-claims">Back to My Claims</a></p>
@@ -123,18 +114,6 @@ const rejectedPrefix = 'Claim rejected: ';
       border-left: 4px solid #b00020;
       padding-left: 0.75rem;
     }
-    dl {
-      display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 0.25rem 1rem;
-    }
-    dd {
-      margin: 0;
-    }
-    /* Keep the Claimant's and Officer's line breaks. */
-    .text {
-      white-space: pre-wrap;
-    }
     .info-request {
       border: 1px solid #ddd;
       padding: 0 0.75rem;
@@ -188,9 +167,8 @@ export class ClaimDetail {
       return '';
     }
     const entry = claim.history.filter((h) => h.status === 'Rejected').at(-1);
-    return entry?.description.startsWith(rejectedPrefix)
-      ? entry.description.slice(rejectedPrefix.length)
-      : (entry?.description ?? '');
+    const text = entry?.description ?? '';
+    return text.startsWith(rejectedPrefix) ? text.slice(rejectedPrefix.length) : text;
   });
 
   protected readonly marketName = marketName;
@@ -205,25 +183,19 @@ export class ClaimDetail {
   private readonly notFound = new Subject<void>();
 
   constructor() {
-    // Ask now, then every 5 seconds, and also whenever refresh fires. switchMap drops a request still
-    // in flight when the next one starts, so a slow, older answer can't overwrite a newer one.
-    merge(timer(0, 5000), this.refresh)
-      .pipe(
-        switchMap(() =>
-          this.api.get(this.id).pipe(
-            timeout(4500), // see problemMessage
-            catchError((err: HttpErrorResponse | TimeoutError) => {
-              this.error.set(problemMessage(err));
-              if (err instanceof HttpErrorResponse && err.status === 404) {
-                this.notFound.next();
-              }
-              return EMPTY;
-            }),
-          ),
-        ),
-        takeUntil(this.notFound),
-        takeUntilDestroyed(),
-      )
+    // Ask now, then every 5 seconds, and also whenever refresh fires (poll's switchMap drops a request
+    // still in flight, so a slow, older answer can't overwrite a newer one).
+    poll(
+      () => this.api.get(this.id),
+      (err) => {
+        this.error.set(problemMessage(err));
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          this.notFound.next();
+        }
+      },
+      this.refresh,
+    )
+      .pipe(takeUntil(this.notFound), takeUntilDestroyed())
       .subscribe((claim) => {
         this.claim.set(claim);
         this.error.set('');
