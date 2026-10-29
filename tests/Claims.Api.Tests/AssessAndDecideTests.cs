@@ -158,6 +158,19 @@ public class AssessAndDecideTests(ApiFactory factory) : IClassFixture<ApiFactory
         Assert.Equal("UnderReview", (await factory.ClientAs(Priya).GetFromJsonAsync<ClaimDto>($"/api/claims/{claim.Id}"))!.Status);
     }
 
+    // D60 (amended): a malformed body gets the framework's 400 before the Claim is loaded,
+    // so the answer is the same for any Claim id and says nothing about who holds the Claim.
+    [Fact]
+    public async Task A_malformed_body_gets_400_before_the_Assigned_Officer_is_checked()
+    {
+        var claim = await PickedUpBy(Priya);
+
+        var response = await Send(Marcus, "POST", claim.Id, "reject", """{ "reason": "" }""");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(["ClaimSubmitted", "ClaimPickedUp"], (await OutboxFor(claim.Id)).Select(e => e.Type));
+    }
+
     [Fact]
     public async Task Acting_on_a_Claim_that_does_not_exist_gets_404()
     {

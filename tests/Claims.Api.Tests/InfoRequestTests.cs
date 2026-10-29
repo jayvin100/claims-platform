@@ -158,6 +158,19 @@ public class InfoRequestTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // D60 (amended): a malformed body gets the framework's 400 before the Claim is loaded,
+    // so the answer is the same for any Claim id and does not reveal that the Claim exists.
+    [Fact]
+    public async Task A_malformed_body_gets_400_before_ownership_is_checked()
+    {
+        var claim = await AskedBy(Priya, claimant: Aisha);
+
+        var response = await Send(Daniel, claim.Id, "info-response", """{ "answer": "" }""");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(["ClaimSubmitted", "ClaimPickedUp", "InfoRequested"], (await OutboxFor(claim.Id)).Select(e => e.Type));
+    }
+
     private async Task<ClaimDto> PickedUpBy(DemoUser officer, DemoUser? claimant = null)
     {
         var claim = await SubmitAs(claimant ?? Aisha);
