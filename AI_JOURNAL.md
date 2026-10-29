@@ -538,3 +538,23 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Result:** 183 tests pass, and `ng build` is clean. Merged to main by rebase and fast-forward (`967df2b`, `900e296`). Build time at merge: 2h54m of the 5h cap.
 - **#13 (Dashboard)** is built and under review. Its builder found that `3698db9` predated `claims.ts`, so it cherry-picked #9 onto main itself.
 - **Review deviation, logged:** for time, #13 gets one Claude agent covering both spec and standards instead of two, plus Codex as usual.
+
+## Entry #32 (Thu 29 Oct 13:45): ticket 11, Dashboard (#13, wave 3)
+
+- **Built by an agent** in its own worktree (13:36–13:41):
+  - **Code:** a typed `ReportsApi`; an Officer-only `/dashboard` with the Workload table (every Officer, D75) and the Exposure table (one row per Market in its own currency, an Unreserved column, no grand total); a one-line note that the figures lag the live data; Queue and Dashboard links in the header for Officers.
+  - **Polling:** every 5 s.
+  - **Smoke check (Kafka on):** submit, pick up, Reserve, approve and settle each moved the numbers. MY Exposure went back to `MYR 0.00` after the settle.
+- **Bug the agent found and fixed:** an unknown Officer id would have sorted ahead of the named Officers.
+- **Process slip by the lead, recovered by the agent:** the lead told it to base its work on #9's commit `3698db9`, but that commit predated `claims.ts` and #12. The agent cherry-picked #9 onto main instead. The fixer later dropped that cherry-pick when rebasing onto the final #9.
+- **Reviews:** Codex, plus one Claude agent covering both spec and standards. That is one Claude agent instead of two, to save time (logged in entry #31).
+  - **Codex, hard issue:** a failed `/api/users` call was swallowed and never retried, so Officers with no Claims stayed missing and D75 was broken. **Fixed:** users load in the same 5 s poll until they succeed, and the error shows until then.
+  - **Claude, judgement calls, fixed:**
+    - The table now reads "Team Workload", with "Open (Workload)" and "Output" column groups, per D77.
+    - Status headers use the shared `statusLabels`.
+    - Known ids are kept in a `Set`.
+    - `counts` and `noClaims` are renamed to `workloadById` and `emptyWorkload`.
+  - **Claude, left:** Officers can show as ids for a moment if the first report lands before the users list. With the fix, nothing shows until users load, so this no longer happens.
+- **Fixer agent (13:43–13:45):** rebased onto main, which conflicted in `app.routes.ts` (both sides kept). Its smoke check: all three Officers are listed, one with zeros. With the API stopped the error showed, and after a restart it cleared with names filled in.
+- **Implementation calls,** for the final council with #14's: the nav links are for Officers only; both reports are fetched together; users are loaded once and then reused; a failed poll keeps the last figures and shows a message; no grand total, since it would add currencies together.
+- **Result:** `ng build` is clean, and the API is unchanged (183 tests). Merged to main by rebase and fast-forward (`ee71c75`, `e82d48a`). Build time at merge: 2h57m of the 5h cap.
