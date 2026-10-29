@@ -711,3 +711,26 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - Ticked the acceptance boxes on #8 and #14, so all of #3–#14 are ticked.
   - Merged the fixes and removed the agent's worktree.
 - **Next:** an approval council, as I asked: "now i want a new council/audit/review and if they approve all of this like everything we have built." It gets a full round 1 and round 2.
+
+## Entry #41 (Thu 29 Oct 14:22): approval council — approved, with conditions
+
+- **Asked (14:15):** "now i want a new council/audit/review and if they approve all of this like everything we have built."
+- **Ran:** two Claude agents and Codex reviewed the whole repo against my original prompt, the spec and D1–D87. Unlike the last three councils, it ran a full round 1 and round 2.
+  - **Claude A:** simplicity and defensibility lens.
+  - **Claude B:** correctness lens. It reran the 188 tests and built the Angular app from a clean copy.
+  - **Codex:** read-only.
+- **Round 1:**
+  - **Claude A:** approved every area except AI process, which it approved with one condition: I give my own reasons for the delegation and the top decisions.
+  - **Claude B:** approved areas 1–5. It approved docs and AI process with conditions: a README settings-file path, the Q9 line, and my own rehearsal. Claude B also traced the per-Claim ordering argument and found it holds.
+  - **Codex:** approved everything except docs, which it approved with conditions: qualify the "about 6 seconds" line, and add the Q9 line.
+  - **Q9:** all three picked (a): document the 45 s catch-up and don't tune the timeout until the cause is known (D88).
+- **Round 2:**
+  - All three settled on **approve with conditions** overall (D89).
+  - Claude A moved docs to "with conditions" after reading Codex's point.
+  - Claude A and Codex rejected Claude B's settings-path condition. The lead checked it: `Kafka:Enabled` is in `appsettings.json`, as the README says, so that condition was dropped, 2 to 1.
+  - Codex moved the rehearsal condition to required, because the panel assesses my understanding.
+- **Conditions:**
+  - **Done by a fixer (next entry):** the two README lines.
+  - **Mine:** explain in my own words the council delegation, the outbox and per-Claim ordering, D65, D74 against D79, D80 and D87. The council and the AI must not write these for me or back-fill them into the journal.
+- **Nice-to-haves also given to the fixer:** correct a "never rounded" comment in `claims.ts`, and assert in the `xmin` test that the losing save writes no outbox row.
+
