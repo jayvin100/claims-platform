@@ -3,6 +3,7 @@ using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Identity;
 using Claims.Api.Infrastructure.Kafka;
 using Claims.Api.Infrastructure.Outbox;
+using Claims.Api.Notifications;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,7 @@ if (kafka.Enabled)
     if (builder.Environment.IsDevelopment())
         builder.Services.AddHostedService<KafkaTopicCreator>();
     builder.Services.AddHostedService<OutboxPublisher>();
+    builder.Services.AddHostedService<NotificationsConsumer>();
 }
 
 var app = builder.Build();

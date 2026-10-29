@@ -1,6 +1,8 @@
 using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Identity;
+using Claims.Api.Infrastructure.Kafka;
 using Claims.Api.Infrastructure.Outbox;
+using Claims.Api.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace Claims.Api.Infrastructure.Data;
@@ -11,6 +13,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DemoUser> Users => Set<DemoUser>();
     public DbSet<Claim> Claims => Set<Claim>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
+    public DbSet<SimulatedEmail> SimulatedEmails => Set<SimulatedEmail>();
 
     /// <summary>The next number from the one sequence all Markets share (D19). Gaps are fine; repeats can't happen.</summary>
     // EF's SqlQuery for a single value reads it from a column that must be called "Value".
@@ -110,6 +114,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             message.HasIndex(m => m.EventId).IsUnique();
             message.Property(m => m.Type).HasMaxLength(50);
             message.Property(m => m.Payload).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<ProcessedEvent>(processed =>
+        {
+            processed.ToTable("processed_events");
+            // The key is also the duplicate check: the same consumer can't record the same event twice.
+            processed.HasKey(p => new { p.Consumer, p.EventId });
+            processed.Property(p => p.Consumer).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<SimulatedEmail>(email =>
+        {
+            email.ToTable("notification_log");
+            email.Property(e => e.Subject).HasMaxLength(200);
+            // No limit: the body quotes the event (a rejection reason), and a too-long value would make the
+            // insert fail on every retry, blocking the consumer.
+            email.Property(e => e.Body);
         });
     }
 }

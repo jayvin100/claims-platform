@@ -218,6 +218,23 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Claims.Api.Infrastructure.Kafka.ProcessedEvent", b =>
+                {
+                    b.Property<string>("Consumer")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Consumer", "EventId");
+
+                    b.ToTable("processed_events", (string)null);
+                });
+
             modelBuilder.Entity("Claims.Api.Infrastructure.Outbox.OutboxMessage", b =>
                 {
                     b.Property<long>("Sequence")
@@ -253,6 +270,40 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("outbox", (string)null);
+                });
+
+            modelBuilder.Entity("Claims.Api.Notifications.SimulatedEmail", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClaimantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("LoggedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("notification_log", (string)null);
                 });
 
             modelBuilder.Entity("Claims.Api.Claims.ClaimHistoryEntry", b =>

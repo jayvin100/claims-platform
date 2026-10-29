@@ -24,8 +24,9 @@ public class OutboxMessage
     /// <summary>Called by the publisher once Kafka has acknowledged the event.</summary>
     public void MarkSent(DateTimeOffset now) => SentAt = now;
 
+    /// <summary>How events are written to JSON, and so how consumers read them back.</summary>
     // camelCase names and enum names, the same JSON the API returns.
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    public static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
     };

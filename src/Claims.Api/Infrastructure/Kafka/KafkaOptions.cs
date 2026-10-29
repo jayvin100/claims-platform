@@ -24,9 +24,12 @@ public class KafkaOptions
     /// <summary>The connection settings every producer, consumer and admin client starts from.</summary>
     // IPv4 only: "localhost" resolves to IPv6 first on macOS, where Docker's Kafka refuses the connection,
     // so every connect would log an error before falling back to IPv4.
+    // Reconnect at most about once a second (default 100 ms): while Kafka is down each failed connect is
+    // logged, and the default rate buried the API's own lines (about 1,200 lines in a 30 s outage).
     public ClientConfig ClientConfig() => new()
     {
         BootstrapServers = BootstrapServers,
         BrokerAddressFamily = BrokerAddressFamily.V4,
+        ReconnectBackoffMs = 1000,
     };
 }
