@@ -11,7 +11,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 10:56 | 11:12 | Design grilling (32 decisions), spec, tickets |
 | 11:12 | 11:35 | Move tracking to GitHub Issues under a wayfinder map; repo made public; Codex review prompt |
 | 11:35 | 11:53 | Codex runs its independent review (clock kept running) |
-| 11:53 | 12:02 | Weigh the Codex findings, apply decisions to spec, tickets, ADRs |
+| 11:53 | 12:01 | Weigh the Codex findings, apply decisions to spec, tickets, ADRs |
 
 ---
 
@@ -113,7 +113,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - It then gives a verdict on each of D1–D32 and the ADRs, checks the spec and tickets, flags technical risks on this machine (marked verified or from memory), proposes a cut list, writes the hardest panel questions, and gives honest feedback on this journal, including whether my acceptances look like rubber-stamping.
 - **Tracked** as wayfinder ticket #15 (`wayfinder:task`, claimed by me) under the map #1. It graduated out of the map's "Not yet specified" section.
 
-## Entry #11 (Thu 29 Oct 12:02): weighing the Codex review
+## Entry #11 (Thu 29 Oct 12:01): weighing the Codex review
 
 - **Codex's verdict:** keep the architecture. Stop adding planning. It found real gaps in the event contract and startup, and flagged that my grilling acceptances (31 of 31) and my outbox reason looked like rubber-stamping. It also corrected the clock: on a continuous count the 5-hour cap ends at **15:48 today**, not tomorrow.
 - **The AI put six decisions to me**, giving its own view where it differed from Codex:
