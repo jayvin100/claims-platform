@@ -298,6 +298,7 @@ Policy Numbers are typed in and not verified (D8).
 | Topic creation | `claim-events` and `claim-events-dlq` are created in Development only; elsewhere they must exist | |
 | Dead letters (D90) | A message a consumer can't read, or whose event type it doesn't know, is copied to `claim-events-dlq` and the consumer moves on. Headers say which consumer sent it, why, and where it came from; each consumer sends its own copy. Until it is replayed by hand, Reporting's totals miss that event. To replay, fix the cause (deploy the handler or correct the payload), then produce the message back onto `claim-events` with its key and `event-type` header; a consumer that already handled it skips it by event id. A late replay can move Reporting's row back to an older status or Reserve: check the Claim's current state first, or rebuild the row from its events in order | Automated replay (What's next) |
 | Stale screen (D80) | `xmin` catches simultaneous saves, not a stale screen: an old tab approves at the current Reserve | ETag and If-Match |
+| Stale answer (D91) | The answer doesn't name its Info Request, so an answer written in an old tab for an earlier question can be saved against a newer question, and the Claim goes back to Under Review | Send the Info Request id and answer 409 if it isn't the open one, or ETag and If-Match |
 | Extreme amounts (D82) | Around 1e28, the Exposure sum can overflow and fail | |
 | Broker restart (D88) | Outbox republished in about 2.5 s; consumers took about 45 s more. Nothing lost. Suspected, unconfirmed cause: the group rejoining under the default 45 s session timeout, so it stays unchanged | Diagnose, then tune |
 | Outbox growth (D83) | The table only grows | Partial index on unsent rows, archive job |
@@ -341,7 +342,7 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-s
 3. A Manager role, with reassignment of Claims.
 4. Server push (SSE) instead of polling.
 5. Automated dead-letter replay (D90).
-6. ETag and If-Match, so a stale screen can't approve at a changed Reserve (D80).
+6. Stop stale screens acting: ETag and If-Match, so an old tab can't approve at a changed Reserve (D80); and the Info Request id on an answer, with 409 if it isn't the open one, so an answer can't be saved against a newer question (D91).
 7. Policy lookup against the policy administration system.
 8. Containers, CI and deployment.
 
