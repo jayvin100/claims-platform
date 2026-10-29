@@ -5,7 +5,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
-import { Claim, formatAmount, marketName, problemMessage, statusLabels } from '../claims';
+import {
+  Claim,
+  dateFormat,
+  dateTimeFormat,
+  formatAmount,
+  marketName,
+  problemMessage,
+  statusLabels,
+} from '../claims';
 import { ClaimantApi } from './claimant-api';
 
 // The Claim's rejection reason is kept in its Claim History entry, not a field of its own (D62).
@@ -41,7 +49,7 @@ const rejectedPrefix = 'Claim rejected: ';
         <dt>Claim Type</dt>
         <dd>{{ claim.claimType }}</dd>
         <dt>Incident date</dt>
-        <dd>{{ claim.incidentDate | date: 'd MMM y' }}</dd>
+        <dd>{{ claim.incidentDate | date: dateFormat }}</dd>
         <dt>Description</dt>
         <dd class="text">{{ claim.description }}</dd>
         @if (claim.reserveAmount !== null) {
@@ -54,12 +62,12 @@ const rejectedPrefix = 'Claim rejected: ';
       @for (request of claim.infoRequests; track $index) {
         <div class="info-request">
           <p>
-            <strong>Question</strong> ({{ request.requestedAt | date: 'd MMM y, HH:mm' }}):
+            <strong>Question</strong> ({{ request.requestedAt | date: dateTimeFormat }}):
             <span class="text">{{ request.question }}</span>
           </p>
           @if (request.answer !== null) {
             <p>
-              <strong>Your answer</strong> ({{ request.answeredAt | date: 'd MMM y, HH:mm' }}):
+              <strong>Your answer</strong> ({{ request.answeredAt | date: dateTimeFormat }}):
               <span class="text">{{ request.answer }}</span>
             </p>
           } @else {
@@ -87,7 +95,7 @@ const rejectedPrefix = 'Claim rejected: ';
       <ol class="timeline">
         @for (entry of claim.history; track $index) {
           <li>
-            <span class="when">{{ entry.occurredAt | date: 'd MMM y, HH:mm' }}</span>
+            <span class="when">{{ entry.occurredAt | date: dateTimeFormat }}</span>
             <span class="text">{{ entry.description }}</span>
             <span class="status-tag">{{ statusLabels[entry.status] }}</span>
           </li>
@@ -178,6 +186,8 @@ export class ClaimDetail {
   protected readonly marketName = marketName;
   protected readonly statusLabels = statusLabels;
   protected readonly formatAmount = formatAmount;
+  protected readonly dateFormat = dateFormat;
+  protected readonly dateTimeFormat = dateTimeFormat;
 
   /** Fetches the Claim at once, outside the 5-second rhythm. */
   private readonly refresh = new Subject<void>();

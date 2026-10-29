@@ -7,7 +7,7 @@ Domain terms (Claim, Officer, Reserve, Exposure and so on) are used as [GLOSSARY
 ## Prerequisites
 
 - .NET 10 SDK (the brief asks for .NET 8 or later; 10 is the current LTS)
-- Node.js 22.22+, 24.15+ or 26+ (what Angular 22 supports), with npm
+- Node.js 22.22.3+, 24.15+ or 26+ (what Angular 22 supports), with npm
 - Docker, with Docker Compose
 
 ## Run it
@@ -52,11 +52,11 @@ The tests need the Compose Postgres running. They use their own database, `claim
 
 The demo users are two Claimants (Aisha Rahman, Daniel Tan) and three Officers (Priya Nair, Marcus Lim, Siti Hassan). Use **Switch user** in the header to change who you are. Keep the API terminal visible: the simulated emails are printed there.
 
-1. **Claimant submits.** Pick Aisha Rahman. Choose **Report a Claim** and enter any Policy Number, Market SG, Motor, today's date, a short description. She gets a Claim Number such as `CLM-SG-000001`, and the Claim shows as Submitted. The API console prints a simulated email: `Simulated email to Claimant ...: "We've received your Claim CLM-SG-000001"`.
-2. **Officer picks it up.** Switch to Priya Nair. The Claim is in her Queue. Open it and pick it up; it moves to Under Review. Set a Reserve, say 5000. Request info with a question.
+1. **Claimant submits.** Pick Aisha Rahman. Choose **Report a Claim** and enter any Policy Number, Market Singapore, Motor, today's date, a short description. She gets a Claim Number such as `CLM-SG-000001`, and the Claim shows as Submitted. The API console prints a simulated email: `Simulated email to Claimant ...: "We've received your Claim CLM-SG-000001"`.
+2. **Officer picks it up.** Switch to Priya Nair. The Claim is in her Queue. Open it and pick it up; it moves to Under Review. Set a Reserve, say 5000. Request info with a question. (The Claimant can see the Reserve too; that is by design, D65.)
 3. **Claimant answers.** Switch to Aisha. The Claim shows Info Requested and the question. Answer it. The Claim goes back to Under Review. Her timeline shows every step.
-4. **Officer approves.** Switch to Priya. Open the Claim and approve it. Then open **Dashboard**: the SG row of Exposure counts the Claim as open, with SGD 5,000.00 in Open Reserves.
-5. **Officer settles, and Exposure drops.** Open the Claim again and settle it. The Claim shows Settled at once. Go back to the Dashboard: the SG open count and Open Reserves drop a few seconds later, not at once (the Dashboard refreshes every 5 seconds). That lag is eventual consistency. The Queue and Claim screens read live data, while the Dashboard reads Reporting's read model, which is fed through Kafka. Approving and settling each email Aisha in the API console.
+4. **Officer approves.** Switch to Priya. Open the Claim and approve it. Then open **Dashboard**: the Singapore row of Exposure counts the Claim as open, with SGD 5,000.00 in Open Reserves.
+5. **Officer settles, and Exposure drops.** Open the Claim again and settle it. The Claim shows Settled at once. To watch the drop, keep the Dashboard open in a second window while you settle: the Singapore open count and Open Reserves drop after the Claim does, typically within a second, plus up to 5 seconds until the Dashboard's next refresh. That lag is eventual consistency. The Queue and Claim screens read live data, while the Dashboard reads Reporting's read model, which is fed through Kafka. Approving and settling each email Aisha in the API console.
 
 To see the conflict rule, open a Submitted Claim as two different Officers in two separate browser windows. Make one a private window, because the chosen demo user is shared through localStorage. Pick Priya in one and Marcus in the other, then click **Pick up** in both within 5 seconds (before the next refresh hides the button). The second gets a clear 409 message. Or, in Swagger, send the same pick-up call twice, once with each Officer's `X-User-Id` and `X-Role`.
 

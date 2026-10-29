@@ -62,6 +62,13 @@ export interface Claim {
   infoRequests: InfoRequest[];
 }
 
+/**
+ * DatePipe formats both roles' screens use, so a date reads the same everywhere:
+ * "29 Oct 2026" and "29 Oct 2026, 14:08" (in the browser's time zone).
+ */
+export const dateFormat = 'd MMM y';
+export const dateTimeFormat = 'd MMM y, HH:mm';
+
 /** Status names as the glossary writes them. */
 export const statusLabels: Record<ClaimStatus, string> = {
   Submitted: 'Submitted',

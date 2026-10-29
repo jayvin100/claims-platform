@@ -4,7 +4,15 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Observable, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
-import { Claim, formatAmount, marketName, problemMessage, statusLabels } from '../claims';
+import {
+  Claim,
+  dateFormat,
+  dateTimeFormat,
+  formatAmount,
+  marketName,
+  problemMessage,
+  statusLabels,
+} from '../claims';
 import { CurrentUser } from '../identity/current-user';
 import { OfficerApi } from './officer-api';
 
@@ -48,9 +56,9 @@ import { OfficerApi } from './officer-api';
         <dt>Policy Number</dt>
         <dd>{{ claim.policyNumber }}</dd>
         <dt>Incident date</dt>
-        <dd>{{ claim.incidentDate | date: 'd MMM y' }}</dd>
+        <dd>{{ claim.incidentDate | date: dateFormat }}</dd>
         <dt>Submitted</dt>
-        <dd>{{ claim.createdAt | date: 'medium' }}</dd>
+        <dd>{{ claim.createdAt | date: dateTimeFormat }}</dd>
         <dt>Description</dt>
         <dd class="text">{{ claim.description }}</dd>
       </dl>
@@ -125,12 +133,12 @@ import { OfficerApi } from './officer-api';
           @for (request of claim.infoRequests; track $index) {
             <li>
               <p>
-                <strong>Asked {{ request.requestedAt | date: 'medium' }}:</strong>
+                <strong>Asked {{ request.requestedAt | date: dateTimeFormat }}:</strong>
                 <span class="text">{{ request.question }}</span>
               </p>
               @if (request.answer !== null) {
                 <p>
-                  <strong>Answered {{ request.answeredAt | date: 'medium' }}:</strong>
+                  <strong>Answered {{ request.answeredAt | date: dateTimeFormat }}:</strong>
                   <span class="text">{{ request.answer }}</span>
                 </p>
               } @else {
@@ -145,7 +153,7 @@ import { OfficerApi } from './officer-api';
       <ol>
         @for (entry of claim.history; track $index) {
           <li>
-            {{ entry.occurredAt | date: 'medium' }}:
+            {{ entry.occurredAt | date: dateTimeFormat }}:
             <span class="text">{{ entry.description }}</span>
             ({{ statusLabels[entry.status] }})
           </li>
@@ -199,6 +207,8 @@ export class ClaimDetail {
   protected readonly isMine = computed(() => this.claim()?.assignedOfficerId === this.me()?.id);
   protected readonly statusLabels = statusLabels;
   protected readonly formatAmount = formatAmount;
+  protected readonly dateFormat = dateFormat;
+  protected readonly dateTimeFormat = dateTimeFormat;
   protected readonly marketName = marketName;
 
   /** Fetches at once after an action; switchMap drops any poll still in flight, so it can't overwrite the result. */
