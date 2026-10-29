@@ -1007,5 +1007,5 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - **Time log:** it stopped at 14:24; rows added to 15:17.
   - **Whose voice:** a header line now says the lead AI writes in my voice and my own words are the parts in quotes.
   - **Unreviewed code commits:** `a2eba4a` (#40), `1d70043` (#42) and `764dd09` (#48) had no separate review at the time. The final review team covers them.
-  - **Entry #33's open doubt:** the fixer couldn't confirm the old-duplicate test. The Reporting and tests reviewers have now confirmed it: an old redelivery does not bring a Reserve back.
+  - **Entry #31's open doubt:** the fixer asked whether the old-duplicate test passes because of the processed-id check or the unique key. It is still not checked. The Reporting and tests reviewers confirmed the behaviour (an old redelivery does not bring a Reserve back), but not which mechanism causes it.
 - **Open, and needs me:** approval condition (3) of D89, rehearsing in my own words. Still not rehearsed: per-Claim ordering (D69/D84) and D87. My D80 answer described a double approve rather than a stale tab, and there's no retry on record.
