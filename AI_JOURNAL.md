@@ -850,3 +850,13 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **My decision (by 14:52):** "record it, and build it now". This overrides D74 and D79 directly, as my own decision rather than a council's. It is logged as D90.
 - **Next:** a builder agent implements D90 with a test. Then a Claude review plus a Codex review, and a live Kafka check, before merging. The README and overview decision trees are updated to match.
 
+
+## Entry #52 (Thu 29 Oct 14:57): rehearsal, part 5 — D80, approving from an old tab
+
+- **Question:** an Officer changes the Reserve in tab B, then clicks Approve in tab A, which still shows the old Reserve. The Claim is approved at an amount that screen never showed. How would I explain that gap, and what would I do in production?
+- **My answer, in my own words (between 14:53 and 14:57):** "when you click on tab A it get sent to the DB with identifiers. but before that checks are done think of SQL BEGIN AND ROLLBACK with checks in between SQL and the backend code. if there is no entry or no decision made yet all clear to record that approval. tab B when click approves goes through the same backend checks first dont need to hit the database we have several layers/line of defense and checks before data is being CRUD. so clearly it there is a record already so the layers/line of defense of logics will probably prompt a toast error saying this has already been approved or could implement webhooks or disable that button if the page is SSR or client side rendering"
+- **AI's note:**
+  - **Correct for a double approve.** The backend checks stop a second approve: it gets a 409, "Only a Claim Under Review can be approved".
+  - **What D80 is about instead.** Tab B changed the Reserve but didn't approve. The status is still Under Review, so every check passes, and tab A approves at the new amount.
+  - **The production fix.** Send the version the screen loaded, and refuse with a 409 if the row has changed since. That is SQL Server's `rowversion` compared in the `WHERE` clause, which is ETag/If-Match over HTTP.
+  - **My ideas also help.** Pushing updates to the screen (server push or webhooks, listed under What's next) narrows the gap, and so does disabling the button while the screen is stale. The 5 s polling already narrows it.
