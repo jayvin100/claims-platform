@@ -8,8 +8,10 @@ Jay's command, run through `codex exec` (Jay's choice, 12:46). Plain `codex "<pr
 
 ```sh
 codex exec --model gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" \
-  -s read-only --color never -o <scratch>/codex-review-<ticket>.md "$(cat <scratch>/codex-review-<ticket>-prompt.md)"
+  -s read-only --color never -o <scratch>/codex-review-<ticket>.md "$(cat <scratch>/codex-review-<ticket>-prompt.md)" < /dev/null
 ```
+
+- `< /dev/null`: run in the background without it, `codex exec` can wait on stdin for good ("Reading additional input from stdin…"). The #7 review hung for 8 minutes this way.
 
 - `--model gpt-6.1-sol`: GPT 6.1 Sol.
 - `-c model_reasoning_effort="high"`: the local config defaults to `xhigh`.

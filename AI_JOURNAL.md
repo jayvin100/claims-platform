@@ -330,3 +330,10 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Implementation calls:** the agent's six, plus `web/` as the folder (entry #18), go to the council (entry #19) together with #7's; the outcome goes in a later entry.
 - **Merged** to main by rebase and fast-forward. Result: 120 API tests pass, `ng build` is clean. Build time at merge: 2h20m of the 5h cap.
 
+## Entry #21 (Thu 29 Oct 13:18): the lead orchestrates; fixer agents apply fixes
+
+- **Asked (13:17):** "you dont have to fix u can assign a fixer subagent and you just orchestrate", then "also add this to the notes".
+- **AI did:** added the rule to AGENTS.md. From now on, builder agents write each ticket and fixer agents apply review fixes. The lead session dispatches reviews and councils, merges, and writes the journal and D-rows.
+- **Before this rule** (logged so it is clear who wrote what): the lead itself applied #10's review fixes (entry #20) and one #7 fix, a single `OpenInfoRequest` property on the Claim that holds the "at most one open" check, which a Claude standards review asked for.
+- **Tooling bug found and fixed:** the Codex review of #7 hung for about 8 minutes at "Reading additional input from stdin". Run in the background, `codex exec` waited on the shell's open stdin. The AI stopped it and reran it with `< /dev/null`, and added that to the command in `docs/agents/codex-review.md`. (The #6 and #10 reviews happened to finish without it.)
+
