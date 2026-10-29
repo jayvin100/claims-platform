@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { TimeoutError } from 'rxjs';
 
 // The Claim as the API returns it to both roles (D53), plus helpers both the Officer and the
 // Claimant screens use. Shapes typed by hand against the API's contracts
@@ -96,7 +97,12 @@ export function formatAmount(currency: string, amount: number): string {
  * A failed call in plain words. A broken Claim rule (400, 403, 409) carries the Claim's own message
  * in the problem details' `detail`; a missing or too-long field gets a validation 400 with `errors`.
  */
-export function problemMessage(err: HttpErrorResponse): string {
+export function problemMessage(err: HttpErrorResponse | TimeoutError): string {
+  // A polling screen gives each GET 4.5 s: shorter than its 5 s tick, so a slow request fails here
+  // with a message before the next tick's switchMap would cancel it silently.
+  if (err instanceof TimeoutError) {
+    return 'The server took too long to answer.';
+  }
   if (err.status === 0) {
     return 'The API did not answer. Is it running?';
   }

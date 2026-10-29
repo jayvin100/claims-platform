@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { EMPTY, catchError, switchMap, timer } from 'rxjs';
+import { EMPTY, TimeoutError, catchError, switchMap, timeout, timer } from 'rxjs';
 import { marketName, problemMessage, statusLabels } from '../claims';
 import { OfficerApi, QueueItem } from './officer-api';
 
@@ -88,8 +88,9 @@ export class Queue {
       .pipe(
         switchMap(() =>
           this.api.queue().pipe(
+            timeout(4500), // see problemMessage
             // A failed poll shows a message and leaves the last rows on screen; the next tick tries again.
-            catchError((err: HttpErrorResponse) => {
+            catchError((err: HttpErrorResponse | TimeoutError) => {
               this.error.set(problemMessage(err));
               return EMPTY;
             }),

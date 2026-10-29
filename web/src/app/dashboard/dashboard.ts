@@ -1,7 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { EMPTY, Observable, catchError, forkJoin, map, of, switchMap, timer } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  TimeoutError,
+  catchError,
+  forkJoin,
+  map,
+  of,
+  switchMap,
+  timeout,
+  timer,
+} from 'rxjs';
 import { formatAmount, marketName, problemMessage, statusLabels } from '../claims';
 import { DemoUser } from '../identity/demo-user';
 import { UsersApi } from '../identity/users-api';
@@ -155,8 +166,9 @@ export class Dashboard {
       .pipe(
         switchMap(() =>
           forkJoin([this.reports.workload(), this.reports.exposure(), this.loadOfficers()]).pipe(
+            timeout(4500), // see problemMessage
             // A failed poll shows a message and leaves the last figures on screen; the next tick tries again.
-            catchError((err: HttpErrorResponse) => {
+            catchError((err: HttpErrorResponse | TimeoutError) => {
               this.error.set(problemMessage(err));
               return EMPTY;
             }),

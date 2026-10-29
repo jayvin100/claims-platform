@@ -270,7 +270,7 @@ Poison (missing or null required fields, a null event-type header, an unknown ty
 
 | Topic | Rule |
 |-------|------|
-| **Eventual consistency** | The Queue and Claim screens read live data. The Dashboard reads Reporting's read model, a second or two behind. My Claims, Claim detail (both roles), the Queue and the Dashboard poll every 5 s. While Kafka and the consumers are healthy, a change typically reaches the Dashboard within about 6 s |
+| **Eventual consistency** | The Queue and Claim screens read live data. The Dashboard reads Reporting's read model, a second or two behind. My Claims, Claim detail (both roles), the Queue and the Dashboard poll every 5 s, and show an error if a request takes over 4.5 s. While Kafka and the consumers are healthy, a change typically reaches the Dashboard within about 6 s |
 | **Identity** ([ADR-0006](docs/adr/0006-trusted-identity-headers.md)) | No login. The role picker sends `X-User-Id` and `X-Role`; the API trusts them, and still enforces and tests every authorisation rule |
 
 Every choice and its alternatives: the [decision log](docs/decisions.md) and the [ADRs](docs/adr/).

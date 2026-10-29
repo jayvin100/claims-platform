@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { EMPTY, catchError, switchMap, timer } from 'rxjs';
+import { EMPTY, TimeoutError, catchError, switchMap, timeout, timer } from 'rxjs';
 import { marketName, problemMessage, statusLabels } from '../claims';
 import { ClaimSummary, ClaimantApi } from './claimant-api';
 
@@ -77,7 +77,8 @@ export class MyClaims {
       .pipe(
         switchMap(() =>
           this.api.listMine().pipe(
-            catchError((err: HttpErrorResponse) => {
+            timeout(4500), // see problemMessage
+            catchError((err: HttpErrorResponse | TimeoutError) => {
               this.error.set(problemMessage(err));
               return EMPTY;
             }),

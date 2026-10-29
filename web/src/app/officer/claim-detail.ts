@@ -3,7 +3,18 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { EMPTY, Observable, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  Subject,
+  TimeoutError,
+  catchError,
+  merge,
+  switchMap,
+  takeUntil,
+  timeout,
+  timer,
+} from 'rxjs';
 import {
   Claim,
   dateFormat,
@@ -222,9 +233,10 @@ export class ClaimDetail {
       .pipe(
         switchMap(() =>
           this.api.claim(this.id).pipe(
-            catchError((err: HttpErrorResponse) => {
+            timeout(4500), // see problemMessage
+            catchError((err: HttpErrorResponse | TimeoutError) => {
               this.loadError.set(problemMessage(err));
-              if (err.status === 404) {
+              if (err instanceof HttpErrorResponse && err.status === 404) {
                 this.notFound.next();
               }
               return EMPTY;
