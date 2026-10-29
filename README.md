@@ -6,7 +6,7 @@ Domain terms (Claim, Officer, Reserve, Exposure and so on) are used as [GLOSSARY
 
 ## Prerequisites
 
-- .NET 10 SDK
+- .NET 10 SDK (the brief asks for .NET 8 or later; 10 is the current LTS)
 - Node.js 22.22+, 24.15+ or 26+ (what Angular 22 supports), with npm
 - Docker, with Docker Compose
 

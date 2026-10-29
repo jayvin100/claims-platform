@@ -36,7 +36,7 @@ The brief lists questions to consider. This is where each one is answered.
 |---|---|---|---|
 | D2 | One ASP.NET Core API as a modular monolith. | Microservices | One deployable and one database: runs in a few commands and fits the time box. ADR-0001. |
 | D21 | Modules: Claims (owns the Claim and all REST), Notifications and Reporting (Kafka consumers). | Claims / Assessment / Reporting | Claimant and Officer actions change the same Claim, so an Assessment module would split one entity's rules. ADR-0001. |
-| D3 | .NET 10 (current LTS). | .NET 8 | The brief doesn't pin a version, .NET 10 is the installed SDK, and installing an older one gains nothing. |
+| D3 | .NET 10 (current LTS). | .NET 8 | The brief asks for .NET 8 or later, so .NET 10 meets it. (This row first said the brief doesn't pin a version; Jay corrected that on Thu 29 Oct 14:09.) .NET 10 is the installed SDK and the current LTS, so installing an older one gains nothing. |
 | D4 | Postgres with EF Core. | SQL Server; SQLite | Native on Apple Silicon, small and fast to start. SQL Server runs emulated and slowly; SQLite doesn't behave like production for concurrency. ADR-0002. |
 | D13 | Optimistic concurrency on the Claim using Postgres `xmin`; the losing Officer gets 409. | Pessimistic locks; an extra version column | No locks are held, the conflict is caught on save, and Postgres already keeps a row version. |
 | D22 | One API project with a folder per module, plus one test project. Controllers, not minimal APIs. | A project per module; minimal APIs | Controllers are the familiar .NET idiom; two projects keep the tree and `dotnet test` simple. |

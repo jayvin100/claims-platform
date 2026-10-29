@@ -638,3 +638,13 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Left on the local machine:** the per-agent databases (`claims_t*`, `claims_test_*`, `claims_fresh`, `claims_lead_e2e`) in the Compose Postgres. They are harmless, and `docker compose down -v` removes them.
 - **Build time:** 3h11m of the 5h cap.
 
+## Entry #37 (Thu 29 Oct 14:09): final verification launched; D3 corrected
+
+- **Asked:** "i am guessing everything is done? get agents to verify." I then pasted the original prompt as a reminder that the core goals still apply, even though the design changed along the way.
+- **AI did:** launched three independent verifiers:
+  - a fresh clone from GitHub that follows only the README and walks the full demo in a browser;
+  - a Claude audit of every acceptance criterion, the late decisions (D60–D85), the process rules, and the original prompt's core goals;
+  - a Codex audit of every acceptance criterion, the REST contract, the events and the README.
+- **Mismatch the AI found:** the original prompt's summary of the brief says ".NET 8", but D3 said "the brief doesn't pin a version". The AI asked me, because only I have the brief.
+- **My answer (14:09):** the brief says .NET 8 or later. D3's reason now quotes the brief correctly, and the README's prerequisites say why .NET 10 meets it. The decision itself is unchanged.
+
