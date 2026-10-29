@@ -28,8 +28,18 @@ export class CurrentUser {
 
 function load(): DemoUser | null {
   try {
-    return JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+    // A value that parses but isn't a whole user (say "{}") would send the guards round in a loop.
+    return isDemoUser(saved) ? saved : null;
   } catch {
     return null; // a damaged value means "nobody chosen", so the role picker shows again
   }
+}
+
+function isDemoUser(value: any): value is DemoUser {
+  return (
+    typeof value?.id === 'string' &&
+    typeof value?.name === 'string' &&
+    (value?.role === 'Claimant' || value?.role === 'Officer')
+  );
 }

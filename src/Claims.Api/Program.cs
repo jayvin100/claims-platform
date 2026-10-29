@@ -52,7 +52,9 @@ if (app.Environment.IsDevelopment())
 }
 
 // CORS answers browser preflight (OPTIONS) requests itself, before the auth check sees them.
-app.UseCors();
+// Only the Angular dev server needs it, so it is on in Development only (ticket #10).
+if (app.Environment.IsDevelopment())
+    app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

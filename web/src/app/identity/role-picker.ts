@@ -1,15 +1,16 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CurrentUser } from './current-user';
 import { DemoUser, Role, homeFor } from './demo-user';
 import { UsersApi } from './users-api';
 
-/** There is no login (ADR-0006): pick a seeded Claimant or Officer and use the app as them. */
+/** Demo identity (ADR-0006): pick a seeded Claimant or Officer and use the app as them. */
 @Component({
   selector: 'app-role-picker',
   template: `
     <h1>Who are you?</h1>
-    <p>There is no login in this demo. Pick a user to act as; you can switch at any time.</p>
+    <p>Pick a Demo User to act as; you can switch at any time.</p>
 
     @if (error()) {
       <p class="error">{{ error() }}</p>
@@ -62,7 +63,9 @@ export class RolePicker {
       .list()
       .subscribe({
         next: (users) => this.users.set(users),
-        error: () => this.error.set('Could not load the demo users. Is the API running?'),
+        // The API's problem-details message when it sent one; otherwise it didn't answer at all.
+        error: (err: HttpErrorResponse) =>
+          this.error.set(err.error?.detail ?? err.error?.title ?? 'Could not load the demo users. Is the API running?'),
       });
   }
 

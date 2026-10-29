@@ -8,7 +8,7 @@ Start the API first (it listens on `http://localhost:5169`, set in `src/app/api.
 
 ```bash
 npm install
-npx ng serve
+npm start
 ```
 
 Open `http://localhost:4200/` and pick a demo user. The app reloads whenever you change a source file.
