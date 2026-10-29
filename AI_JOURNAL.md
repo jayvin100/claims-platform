@@ -501,3 +501,20 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
     - The duplicate test replays an event that changes nothing. A fixer will make it replay a status change.
 - **#13 (Dashboard) started at 13:36**, built on #9's branch, because the endpoint shapes were already known. It will rebase onto main once #9 merges.
 - **Wave-2 council started at 13:38** on five questions (UI amount precision, Reporting's unknown types, Officers missing from Workload, Reporting's coupling to Claims, and the meaning of Workload) and 16 calls to accept unless someone objects.
+
+## Entry #30 (Thu 29 Oct 13:39): wave-2 council decides
+
+- **Ran under Jay's delegation**, following the process in entry #19. Members: Claude A (simplicity), Claude B (correctness) and Codex (GPT 6.1 Sol, high reasoning, read-only). One brief covered five questions and 16 calls to accept unless someone objected. The outcomes are D73–D78.
+- **Q1, amount precision in the UI:** all three picked (a) in round 1: document the JS-number limit (D73). Codex and Claude B added that rounding also happens when a Reserve is typed in and sent, not only when it is shown.
+- **Q2, unknown event types in Reporting:** all three picked (b) in round 1: throw and retry, as a scoped exception to D68 (D74). This also settles Codex's earlier dissent for Reporting.
+- **Q3, Officers missing from Workload:** all three picked (b) in round 1: the Dashboard merges in every Officer from `/api/users` (D75).
+- **Q4, where Reporting gets the currency:**
+  - **Round 1:** Claude A and Codex picked (a), take it from the events. Claude B picked (c), keep `Markets.CurrencyOf`, because some rows have no event that carries a currency.
+  - **Round 2:** Claude A and Claude B swapped. Claude A moved to (c), persuaded by Claude B's point about the fallback. Claude B moved to (a), because the spec's line "only knows what the events tell them" is what the panel will test, and the fallback cases are rare edges. Codex stayed on (a).
+  - **Outcome:** (a), 2 of 3 (D76). Claude A dissents: two sources for one fact.
+- **Q5, the meaning of Workload:** all three picked (a) in round 1: amend the glossary (D77).
+- **Accepted calls:** no member objected, so the 16 calls stand (D78). Two notes for Jay to have answers ready on: the app has two form styles, and the rejection-reason prefix couples the UI to the API's wording.
+- **Round 2 covered Q4 only,** because Q1–Q3 and Q5 were unanimous in round 1. This saved time; the council process allows it, since the result could not change.
+- **Dispatched:**
+  - **#9's fixer:** D74 plus one list of event types, a duplicate test that replays a status change, the D77 glossary wording, the D73 comment, the comment fixes, and D76.
+  - **#13's builder:** D75.
