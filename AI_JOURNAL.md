@@ -930,3 +930,33 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - the dead-letter topic is in the architecture and REST vs Kafka diagrams.
 - **Bug the README agent caught in my brief:** I gave the consumer tree as "readable → already processed → known type". After the D90 fixes, `ReadEvent` checks the type and the JSON before the processed check, because the event id comes from that JSON. The agent followed the code. I checked it (`ClaimEventConsumer.cs` lines 183 and 219), and the overview agent was told to use the same order.
 - **No separate review agent for the README fixes:** the full review team runs on the final main next, and its docs reviewers (Claude and Codex) cover the README.
+
+## Entry #57 (Thu 29 Oct 15:12): overview.html merged; final review team running
+
+- **Merged:** `docs/overview.html`, 4 commits ending `4c80b66`, rebased and fast-forwarded; pushed. It is an offline page, about 356 KB with inline SVG. Built from main `2a4e266`.
+- **Contents:**
+  - architecture, including the dead-letter topic;
+  - the Claim lifecycle, the request flow, and the response and consumer decision trees;
+  - a decision explorer covering D1–D90, tagged honestly by who decided;
+  - a Gantt chart of the time log;
+  - the who-caught-what chart (entries #0–#46);
+  - the retro and the screenshots.
+- **Review fixes applied (entry #53):**
+  - the 4h marker and build time now come from the latest entry;
+  - the polling note names the five screens;
+  - findings are counted as 157;
+  - the response tree has pick-up answering 409 and approve-without-Reserve answering 409;
+  - D34 is re-tagged "Jay's choice: sided with the AI over Codex", so "Jay's own calls" are D35 and D90;
+  - the consumer tree follows the code's order (the same correction as entry #56);
+  - Known limits are generated from the new README's table;
+  - the page is stamped with the main commit it came from.
+- **Checked in Chrome:** zero console errors and no sideways scroll at phone width.
+- **I couldn't open it on GitHub** (404) because it wasn't merged yet. The AI explained that GitHub shows the source of an HTML file, not the page, so open it locally. I said "nvm its ok lets just continue with the review".
+- **Final review team, started at 15:10 on the code once D90 and the README were on main:**
+  - Codex: the whole codebase;
+  - Claude: domain and REST, Kafka and D90, Reporting, Angular, tests, and a live fresh-clone run;
+  - the docs, HTML and journal reviewers start now that the overview is merged.
+- **Domain and REST reviewer (done):** no hard issues. The README's response tree and Assigned-Officer line match the code. Two test gaps:
+  - nothing pins D60's "403 before 409";
+  - nothing pins "409 before the domain 400".
+  These go to the fixer batch.
