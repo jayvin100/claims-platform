@@ -860,3 +860,27 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **What D80 is about instead.** Tab B changed the Reserve but didn't approve. The status is still Under Review, so every check passes, and tab A approves at the new amount.
   - **The production fix.** Send the version the screen loaded, and refuse with a 409 if the row has changed since. That is SQL Server's `rowversion` compared in the `WHERE` clause, which is ETag/If-Match over HTTP.
   - **My ideas also help.** Pushing updates to the screen (server push or webhooks, listed under What's next) narrows the gap, and so does disabling the button while the screen is stale. The 5 s polling already narrows it.
+
+## Entry #53 (Thu 29 Oct 15:01): 4h warning recorded; reviews of the docs and of D90
+
+- **4h warning:** the AI warned me in chat at 14:47, with 1h left until 15:48, but didn't write it in the journal at the time. The Claude docs reviewer caught the gap, so it is recorded here.
+- **D90 builder (`384f737`, not yet merged):**
+  - **What it built:** a dead-letter topic `claim-events-dlq`; one shared poison path for both consumers; the offset is committed only after the dead-letter send is acknowledged; a failed send retries; database errors still retry in place. 192 tests pass.
+  - **Live check:** a garbled message and an unknown-type message each landed on the dead-letter topic once per consumer, and a new Claim flowed through right after.
+  - **Bugs it found and fixed:** the topic creator retried forever when one topic existed and the other didn't; JSON in the wrong shape for its type retried forever and now goes to the dead-letter topic. The reviewer judged the second fix to be within D90's "can't read".
+  - **Slip of its own:** it stopped the API with `pkill -f Claims.Api`, which could have killed another session's process. Nothing else was running.
+- **Claude review of D90:**
+  - **Hard issue:** a payload with missing fields is read as nulls instead of failing, so Reporting's save fails and it still retries forever, which breaks "nothing stalls".
+  - **Smaller points:** a replayed dead letter can move Reporting's row back to an older status (document it); one test name claims a retry loop it doesn't test; two comments are stale; a wide `JsonException` catch also covers a database call.
+  - Codex's review of D90 is still running.
+- **Docs reviews, Claude and Codex in parallel:**
+  - **Hard issues:**
+    - the README's consumer tree and Known limits still describe D74/D79;
+    - the response tree is wrong for pick-up, which answers 409, not 403 (Codex), and it leaves out approve-without-Reserve, a 409;
+    - the overview says every screen polls;
+    - the overview's 4h marker and build time stop at 14:24.
+  - **Judgement calls:**
+    - D34 was tagged as my own call, but I sided with the AI against Codex there. It is re-tagged so it doesn't overstate.
+    - The consumer tree's checks need to follow the code's order.
+    - The scope of the who-caught-what chart needs stating.
+  - Both reviewers' fixes are going to the overview agent now. The README fixes go out with the D90 rebase.
