@@ -841,12 +841,12 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **My answer, in my own words (14:47):** "i would defend it as transparency or maybe to keep both parties align and provide trust with the client. if i am against it its because i dont want to under or over promise my clients and give them false hope which again may lose trust and the client"
 - **AI's note:** this is a two-sided trade-off, and the answer covers both sides. Transparency builds trust; showing an estimate can read as a promise. One line to add for the panel: in production I'd hide it behind a role or show it as an estimate, and changing that touches one response field (D65).
 
-## Entry #51 (Thu 29 Oct 14:49): rehearsal, part 4 — I override D74/D79 with a dead-letter topic
+## Entry #51 (Thu 29 Oct 14:52): rehearsal, part 4 — I override D74/D79 with a dead-letter topic
 
 - **Question:** why let one reader skip a bad message but make the other one stop?
-- **My answer, in my own words (14:49):** "checks/identifiers/logics must be in place if cant handle or garbled its an edge case where it goes to a different noticeboard for it to be manually picked up and handle it. nothing must stall kafka think of amazon warehouse conveyor belt it must not get clogged but it has scanners above the belt identifying which is "healthy" and which is not and will get split off from a belt splitter to filter out, one goes to the normal noticeboard and the other for the edge cases board to be handled manually."
+- **My answer, in my own words (between 14:47 and 14:52; the AI first wrote 14:49 without running `date`):** "checks/identifiers/logics must be in place if cant handle or garbled its an edge case where it goes to a different noticeboard for it to be manually picked up and handle it. nothing must stall kafka think of amazon warehouse conveyor belt it must not get clogged but it has scanners above the belt identifying which is "healthy" and which is not and will get split off from a belt splitter to filter out, one goes to the normal noticeboard and the other for the edge cases board to be handled manually."
 - **AI's note:** this is a dead-letter queue, the standard production pattern. It differs from what the councils decided: Reporting stalls (D74) and Notifications skips into the log (D79). It also answers the council's concern for Reporting, because the bad message is kept for replay rather than dropped.
 - **AI asked:** record it only, or build it now? It recommended recording only, since there was about an hour left and the code was already verified.
-- **My decision (14:49):** "record it, and build it now". This overrides D74 and D79 directly, as my own decision rather than a council's. It is logged as D90.
+- **My decision (by 14:52):** "record it, and build it now". This overrides D74 and D79 directly, as my own decision rather than a council's. It is logged as D90.
 - **Next:** a builder agent implements D90 with a test. Then a Claude review plus a Codex review, and a live Kafka check, before merging. The README and overview decision trees are updated to match.
 
