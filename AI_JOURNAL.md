@@ -1099,3 +1099,30 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - **Angular, both:** the Claimant detail's row gap moves from 0.25rem to 0.3rem. Accepted as a cosmetic unification.
 - **No Angular tests (D72):** the Angular refactor is verified by reading, building and one RxJS check, not by tests or a browser run.
 - **Rehearsal (D89 condition 3):** started at my request. Question 1 is per-Claim ordering.
+
+## Entry #63 (Thu 29 Oct 15:42): rehearsal, part 6 — per-Claim ordering, the outbox over IEventPublisher, D80 again; my lessons
+
+- **Why:** the journal reviewer found D89 condition (3) still open: per-Claim ordering (D69/D84) and D87 hadn't been rehearsed, and my D80 answer (entry #52) answered a different question. I asked, "what? ok fine ask me".
+- **Live check after the cleanups:** all 9 UI steps passed in a real browser:
+  - the future date is blocked;
+  - polling works;
+  - a second pick-up shows "This Claim has already been picked up.";
+  - the Dashboard updates within 4.6 s;
+  - a 404 stops polling;
+  - there are no page errors.
+- **Per-Claim ordering (D69/D84):**
+  - My first answer, to "what is the key?": "the payload we send to kafka?" Wrong: the payload is the event's content; the key is the Claim id.
+  - The AI explained: the same key goes to the same partition, a partition is read in order, and the outbox sends in saved order.
+  - My retry: "because it was queued and sent but picked up immediately so they never saw it settled". This still missed the mechanism; timing isn't what protects the order. The AI gave a line to use in the panel: "Every event is keyed by its Claim id, so all of a Claim's events go to the same Kafka partition, and a partition is read in order. The outbox also sends them in the order they were saved."
+  - Not yet said correctly in my own words.
+- **The outbox over IEventPublisher (D87):**
+  - My answer: "we wrote it to an outbox incase kafka was down if it was up it will be picked up and nothing will be lost".
+  - The AI confirmed it and added two points: the Claim and its outbox row are one transaction, so a crash between them can't lose the event; and the tests read the outbox table, so a fake publisher has nothing to do.
+- **D80, second try:**
+  - I said I'd already answered it (entry #52). The AI explained that my earlier answer covered approving twice, which the status checks already stop with a 409. D80 is a valid approve made from a stale screen.
+  - My answer: "we use an ETag with an if match header and see the response if the claim has changed since the last version which allows the API to perform the appropriate action".
+  - The AI confirmed it, and noted that without ETag the approve goes through at the current Reserve; that gap is the known limit.
+- **D89 condition (3) now stands at:**
+  - rehearsed: councils (#43), the outbox (#48, and here), duplicates (#49), D65 (#50), dead letters (#51, which led to D90), D80 (here), and D87 (here);
+  - not yet in my own words: per-Claim ordering.
+- **My lessons, asked for the overview's Retro:** "actually nothing i have been building 4 - 5 apps with AI already. 1 of them is used by real users and others are waiting for like app store approval and others are WIP"
