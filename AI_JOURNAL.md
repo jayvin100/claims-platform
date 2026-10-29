@@ -755,3 +755,16 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **This answers** the first part of the approval council's condition (D89): why I delegated decisions to councils of Claude and Codex agents.
 - **I also asked** whether the other items in that condition were recorded, and if not, to send them to a council. These items were: per-Claim ordering through the outbox, D65, D74 versus D79, D80 and D87.
 - **AI's answer:** the decisions and their reasons are already recorded: D65, D69 and D84, D74 and D79, D80, and D87. What the approval council asked for is something else: me explaining them in my own words before the panel. A council can't supply that, and the approval council said nobody should write those reasons for me. So the AI did not send them to a council. It offered to walk me through each one instead.
+
+## Entry #44 (Thu 29 Oct 14:32): visual docs (README with diagrams + an HTML overview)
+
+- **Asked:** rewrite the docs and logs into a readable format, especially the README, because it is the entry point. My words: "markdown files are hard to read lots of words hard to visualize. instead create html". As a source I shared a talk by an engineer on the Claude Code team about using HTML files instead of Markdown for plans and specs.
+- **AI's view:**
+  - GitHub renders `README.md` on the repo page but shows `.html` files as raw source. An HTML-only README would leave the front page blank.
+  - The journal and the decision log are the timestamped record that the panel checks against commit times. Rewriting them would look like editing history after the fact.
+- **AI's proposal:** keep `README.md` as the entry point, shorter and visual, with Mermaid diagrams that GitHub renders. Add one self-contained `docs/overview.html` with diagrams, a decision explorer and a journal timeline, linked from the README. The journal and `decisions.md` stay as they are.
+- **My decision (14:31):**
+  - Visual README plus the HTML overview, as proposed.
+  - A repo file only, with no claude.ai link.
+  - My reason is the one above: the Markdown is hard to read and hard to visualize.
+- **Next:** two builder agents in parallel, one for the README and one for the HTML, then a Claude review plus a Codex review to check that both match the code and the records.
