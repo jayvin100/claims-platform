@@ -32,7 +32,7 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task ClaimSubmitted_adds_one_row_with_the_Markets_currency_and_no_Officer_or_Reserve()
+    public async Task ClaimSubmitted_adds_one_row_with_its_currency_and_no_Officer_or_Reserve()
     {
         var claim = new TestClaim(Market.MY);
 
@@ -45,19 +45,32 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task The_currency_comes_from_ClaimSubmitted_and_ReserveSet()
+    {
+        // Currencies that aren't the Market's, so the test fails if the row falls back to the Market's (D7).
+        var claim = new TestClaim(Market.SG);
+
+        await Apply(claim.Submitted(currency: "USD"));
+        Assert.Equal("USD", (await RowFor(claim.Id)).Currency);
+
+        await Apply(claim.PickedUp(Priya.Id), claim.ReserveSet(1000m, currency: "EUR"));
+        Assert.Equal("EUR", (await RowFor(claim.Id)).Currency);
+    }
+
+    [Fact]
     public async Task The_same_event_applied_twice_counts_once_and_is_recorded_once()
     {
         var claim = new TestClaim(Market.SG);
-        var submitted = claim.Submitted();
+        var infoRequested = claim.InfoRequested();
+        await Apply(claim.Submitted(), claim.PickedUp(Priya.Id), infoRequested, claim.InfoProvided());
 
-        await Apply(submitted);
-        await Apply(submitted);
+        // Without the processed-id check, this would move the Claim back to Info Requested.
+        await Apply(infoRequested);
 
-        var sg = await ExposureFor(Market.SG);
-        Assert.Equal(1, sg.OpenClaims);
+        await AssertPriyaHolds(underReview: 1);
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Equal(1, await db.ProcessedEvents.CountAsync(p => p.Consumer == ReportingConsumer.Name && p.EventId == submitted.EventId));
+        Assert.Equal(1, await db.ProcessedEvents.CountAsync(p => p.Consumer == ReportingConsumer.Name && p.EventId == infoRequested.EventId));
     }
 
     [Fact]
@@ -163,28 +176,42 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
-    public async Task An_unknown_event_type_is_recorded_as_processed_and_changes_nothing()
+    public async Task An_unknown_event_type_throws_so_it_is_retried_and_is_not_recorded_as_processed()
     {
         var eventId = Guid.NewGuid();
 
-        await Consumer().ProcessAsync("ClaimArchived", $$"""{ "eventId": "{{eventId}}", "claimId": "{{Guid.NewGuid()}}" }""", CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Consumer().ProcessAsync(
+            "ClaimArchived", $$"""{ "eventId": "{{eventId}}", "claimId": "{{Guid.NewGuid()}}" }""", CancellationToken.None));
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.True(await db.ProcessedEvents.AnyAsync(p => p.Consumer == ReportingConsumer.Name && p.EventId == eventId));
+        Assert.False(await db.ProcessedEvents.AnyAsync(p => p.Consumer == ReportingConsumer.Name && p.EventId == eventId));
         Assert.Equal(0, await db.ReportingClaims.CountAsync());
     }
 
-    // The consumer skips an unknown type rather than retrying it (as Notifications does, D68), so this test is
-    // what catches a new event that Reporting doesn't read.
+    // An event type Reporting has no rule for blocks its partition (see ReportingConsumer), so this test is what
+    // catches a new event type before it ships.
     [Fact]
-    public void Reporting_reads_every_event_type()
+    public async Task Reporting_handles_every_event_type()
     {
+        var claim = new TestClaim(Market.SG);
+        ClaimEvent[] oneOfEach =
+        [
+            claim.Submitted(), claim.PickedUp(Priya.Id), claim.ReserveSet(100m), claim.InfoRequested(),
+            claim.InfoProvided(), claim.Approved(), claim.Rejected(), claim.Settled(),
+        ];
         var everyEventType = typeof(ClaimEvent).Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(ClaimEvent)))
             .Select(t => t.Name);
+        // A new event type fails here until it is added to oneOfEach, and so is applied below.
+        Assert.Equal(everyEventType.Order(), oneOfEach.Select(e => e.GetType().Name).Order());
 
-        Assert.Equal(everyEventType.Order(), ReportingConsumer.EventTypes.Keys.Order());
+        await Apply(oneOfEach); // throws for any type Reporting has no rule for
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ids = oneOfEach.Select(e => e.EventId).ToList();
+        Assert.Equal(oneOfEach.Length, await db.ProcessedEvents.CountAsync(p => p.Consumer == ReportingConsumer.Name && ids.Contains(p.EventId)));
     }
 
     private async Task AssertPriyaHolds(int underReview = 0, int infoRequested = 0, int approved = 0, int settled = 0, int rejected = 0)
@@ -234,9 +261,11 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
         public Guid Id { get; } = Guid.NewGuid();
         private readonly string _number = $"CLM-{market}-{Random.Shared.Next(1_000_000):D6}";
 
-        public ClaimSubmitted Submitted() => new(Guid.NewGuid(), Id, _number, market, Now, Aisha.Id, Markets.CurrencyOf(market));
+        public ClaimSubmitted Submitted(string? currency = null) =>
+            new(Guid.NewGuid(), Id, _number, market, Now, Aisha.Id, currency ?? Markets.CurrencyOf(market));
         public ClaimPickedUp PickedUp(Guid officerId) => new(Guid.NewGuid(), Id, _number, market, Now, officerId, Aisha.Id);
-        public ReserveSet ReserveSet(decimal amount) => new(Guid.NewGuid(), Id, _number, market, Now, amount, Markets.CurrencyOf(market));
+        public ReserveSet ReserveSet(decimal amount, string? currency = null) =>
+            new(Guid.NewGuid(), Id, _number, market, Now, amount, currency ?? Markets.CurrencyOf(market));
         public InfoRequested InfoRequested() => new(Guid.NewGuid(), Id, _number, market, Now, Aisha.Id, "Please send the repair quote.");
         public InfoProvided InfoProvided() => new(Guid.NewGuid(), Id, _number, market, Now);
         public ClaimApproved Approved() => new(Guid.NewGuid(), Id, _number, market, Now, Aisha.Id);

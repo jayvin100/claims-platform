@@ -20,23 +20,24 @@ public class ReportingConsumer(
 
     protected override string ConsumerName => Name;
 
-    /// <summary>The event types Reporting reads, by the name in the Kafka header. All eight change the row (D32).</summary>
-    public static readonly IReadOnlyDictionary<string, Type> EventTypes = new[]
-    {
-        typeof(ClaimSubmitted), typeof(ClaimPickedUp), typeof(ReserveSet), typeof(InfoRequested),
-        typeof(InfoProvided), typeof(ClaimApproved), typeof(ClaimRejected), typeof(ClaimSettled),
-    }.ToDictionary(t => t.Name);
+    /// <summary>
+    /// Every claim event type, by the name in the Kafka header (the class name, see OutboxMessage.From). Only used to
+    /// read the JSON into the right type: what each event does to the row is in <see cref="ReportingClaim.Apply"/>,
+    /// the one list of Reporting's rules.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, Type> ClaimEventTypes = typeof(ClaimEvent).Assembly.GetTypes()
+        .Where(t => t.IsSubclassOf(typeof(ClaimEvent)))
+        .ToDictionary(t => t.Name);
 
     protected override async Task<Action?> ApplyAsync(
         AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
     {
-        if (!EventTypes.TryGetValue(eventType, out var type))
+        if (!ClaimEventTypes.TryGetValue(eventType, out var type))
         {
-            // Skipped (recorded as processed), not retried, as in Notifications (D68): a retry would block every
-            // Claim on its partition. ReportingConsumerTests fails for any event type missing from the list.
-            logger.LogWarning("{Consumer} has no rule for unknown event type {EventType} {EventId}; skipped",
-                ConsumerName, eventType, eventId);
-            return null;
+            // Thrown, so the message is retried: it is not recorded as processed and its offset is not committed, so
+            // its partition stays blocked until a fix is deployed. For a read model, correct totals matter more than
+            // availability. This is a scoped exception to D68, which still applies to Notifications.
+            throw new InvalidOperationException($"{ConsumerName} has no rule for unknown event type {eventType} {eventId}");
         }
 
         var claimEvent = (ClaimEvent)JsonSerializer.Deserialize(eventJson, type, OutboxMessage.JsonOptions)!;

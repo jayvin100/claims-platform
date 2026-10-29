@@ -83,7 +83,7 @@ The per-Market picture of outstanding claims: the open Claim count, the Open Res
 _Avoid_: Liability
 
 **Workload**:
-The Claims each Officer currently holds that are neither Settled nor Rejected.
+The open Claims an Officer holds, split by status (Under Review, Info Requested, Approved). Their Settled and Rejected counts are shown beside it as output.
 _Avoid_: Backlog
 
 **Queue**:

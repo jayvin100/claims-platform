@@ -35,6 +35,9 @@ export interface Claim {
   status: ClaimStatus;
   claimantId: string;
   assignedOfficerId: string | null;
+  // A JS number (a double). The API, the database and the Claim History timeline keep the exact decimal,
+  // but the UI is only exact to about 15 significant digits, both when a Reserve is typed in and sent and
+  // when it is displayed (D73).
   reserveAmount: number | null;
   createdAt: string;
   updatedAt: string;

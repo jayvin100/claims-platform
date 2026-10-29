@@ -18,8 +18,8 @@ public class ReportingClaim
     private ReportingClaim() { } // for EF Core
 
     /// <summary>
-    /// A row for a Claim seen for the first time. Every event carries the Market, and the Market fixes the
-    /// currency (D7), so any event can start the row, though ClaimSubmitted always comes first (ADR-0005).
+    /// A row for a Claim seen for the first time. ClaimSubmitted always comes first (ADR-0005) and sets the currency
+    /// from its event. The Market's currency (D7) is only a fallback, so the row still has one if another event starts it.
     /// </summary>
     public ReportingClaim(Guid claimId, Market market)
     {
@@ -34,8 +34,9 @@ public class ReportingClaim
     {
         switch (claimEvent)
         {
-            case ClaimSubmitted:
+            case ClaimSubmitted e:
                 Status = ClaimStatus.Submitted;
+                Currency = e.Currency;
                 break;
             case ClaimPickedUp e:
                 Status = ClaimStatus.UnderReview;
@@ -43,6 +44,7 @@ public class ReportingClaim
                 break;
             case ReserveSet e:
                 ReserveAmount = e.Amount; // a revision replaces the earlier figure
+                Currency = e.Currency;
                 break;
             case InfoRequested:
                 Status = ClaimStatus.InfoRequested;
@@ -60,6 +62,7 @@ public class ReportingClaim
                 Status = ClaimStatus.Settled;
                 break;
             default:
+                // Thrown, so the message is retried, not skipped (see ReportingConsumer.ApplyAsync).
                 throw new ArgumentException($"Reporting has no rule for {claimEvent.GetType().Name}", nameof(claimEvent));
         }
     }

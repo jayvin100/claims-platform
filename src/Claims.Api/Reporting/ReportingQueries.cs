@@ -12,12 +12,14 @@ public static class ReportingQueries
     {
         var open = await db.ReportingClaims
             .Where(r => r.Status != ClaimStatus.Settled && r.Status != ClaimStatus.Rejected)
-            // Grouped by currency too, so two currencies are never summed together, even by mistake.
+            // Grouped by currency too, to read each Market's currency from its rows (the events). A Market has one
+            // currency (D7), so this is still one row per Market.
             .GroupBy(r => new { r.Market, r.Currency })
             .Select(g => new MarketExposureResponse(
                 g.Key.Market, g.Key.Currency, g.Count(), g.Sum(r => r.ReserveAmount ?? 0), g.Count(r => r.ReserveAmount == null)))
             .ToListAsync();
 
+        // A Market with no open Claims has no row to read a currency from, so it shows the Market's own (D7).
         var quiet = Enum.GetValues<Market>()
             .Where(market => open.All(e => e.Market != market))
             .Select(market => new MarketExposureResponse(market, Markets.CurrencyOf(market), 0, 0m, 0));

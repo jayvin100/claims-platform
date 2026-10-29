@@ -104,7 +104,7 @@ public abstract class ClaimEventConsumer(
 
     /// <summary>
     /// Handles one event once: skips it if this consumer already recorded its id, otherwise applies it and records
-    /// the id in one transaction. Public so seam-3 tests can call it against the test database without Kafka.
+    /// the id in one transaction. Public so tests can call it without Kafka.
     /// </summary>
     public async Task ProcessAsync(string eventType, string eventJson, CancellationToken stoppingToken)
     {
