@@ -44,7 +44,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **AI proposed:** the setup skill defaults to GitHub Issues because the remote is on GitHub. The AI flagged that I had already chosen local markdown in entry #2 and kept that. It recommended the default triage labels and the single-context domain-docs layout (one `GLOSSARY.md` and `docs/adr/`).
 - **Accepted:** local markdown tracker (`.scratch/<feature>/`), default labels, single-context layout. Written to `docs/agents/` plus an `## Agent skills` block in `AGENTS.md`.
 
-## Entry #4 (Thu 29 Oct 11:03): design grilling (`/grill-with-docs`)
+## Entry #4 (Thu 29 Oct 11:02): design grilling (`/grill-with-docs`)
 
 - **Asked:** grill me on the design in rounds, one decision at a time, and write down the glossary and ADRs as decisions settle.
 - **AI proposed:** 31 decisions over three rounds, each with a recommended answer. They're logged in [docs/decisions.md](docs/decisions.md) with what each was chosen over.
@@ -56,3 +56,9 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - Every ADR and decision must say what it was chosen over and why. The AI added "Considered Options" to the ADRs and wrote the decision log.
   - The decisions must line up with the brief. The brief has no scored rubric, so the AI mapped each of its "questions to consider" to the decision that answers it (top of docs/decisions.md).
 - **Written:** `GLOSSARY.md`, ADRs 0001–0006, `docs/decisions.md`.
+
+## Entry #5 (Thu 29 Oct 11:05): event list, and which skills to use
+
+- **AI caught a gap in my prompt:** none of the six events carried a Reserve change, so the read model couldn't calculate Exposure. It proposed adding `ReserveSet` and splitting `ClaimDecided` into `ClaimApproved` and `ClaimRejected` (D32). Accepted.
+- **Asked:** should I use `/wayfinder`, `/codebase-design` or `/domain-modeling` for the assignment as a whole? AI recommended: no `/wayfinder` (it's for efforts too big and foggy for one session, and the design cleared in one grilling); no separate `/codebase-design` session (`/tdd` pulls it in as a reference when a module's interface is in question); and keep `/domain-modeling` running, since `/grill-with-docs` already uses it. My decision: _(pending Jay)_
+- Corrected entry #4's time: the AI had written 11:03 before running `date`, which said 11:02.
