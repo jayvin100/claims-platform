@@ -297,7 +297,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Package approval (13:01):** #8's acceptance criteria require me to confirm Confluent.Kafka. The AI's reason: it is Confluent's official .NET client for Kafka, it is the only package #8 needs, and the spec already lists it as approved. **I approved it**, saying the AI may add a package when there is a good reason, as long as it records the reason and my approval. The AI pinned it to an exact version (2.16.0, the latest stable). It reads my approval as covering this package only, and will still ask before any other.
 - **`ng new` (#10):** approved at 12:59 (entry #17), with its default packages only.
 
-## Entry #19 (Thu 29 Oct 13:08): decisions go to a council of Claude and Codex agents
+## Entry #19 (Thu 29 Oct 13:07): decisions go to a council of Claude and Codex agents
 
 - **Asked (13:06):** "for anything that needs a decision from me dispatch a council team of claude and codex agents. let them think, decide, discuss and come to a consensus then whatever that decision is log it down as that is the direction approved by me."
 - **AI did:** wrote the procedure in `docs/agents/council.md`, and replaced the AGENTS.md rule "stop and ask before a package or a change to an agreed decision" with this one, so it survives `/clear`.
@@ -306,4 +306,5 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Scope:** each ticket's implementation calls, new packages, changes to agreed decisions, and scope cuts. Actions outside the repo's normal work (repo settings, deletions, spending) and anything I ask to decide myself stay with me. The 3h and 4h warnings still come to me.
 - **AI's note to me:** the panel looks at how I direct and challenge the AI. The journal will show that I delegated these calls to a council, and the AI will give me a one-line summary of each outcome so I can still defend it.
 - **Also:** `.claude/worktrees/` (the parallel agents' worktrees) is now git-ignored.
+- **AI slip (third today), fixed:** it wrote this entry's time in the same command that ran `date`, so the time was guessed again (13:08 instead of 13:07). From now on it runs `date` as a separate step before writing any time.
 
