@@ -2,6 +2,7 @@ using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Identity;
 using Claims.Api.Infrastructure.Kafka;
+using Claims.Api.Infrastructure.Outbox;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,7 @@ if (kafka.Enabled)
     // Like migrations, creating the topic is a Development convenience (D25).
     if (builder.Environment.IsDevelopment())
         builder.Services.AddHostedService<KafkaTopicCreator>();
+    builder.Services.AddHostedService<OutboxPublisher>();
 }
 
 var app = builder.Build();

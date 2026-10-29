@@ -21,6 +21,9 @@ public class OutboxMessage
 
     private OutboxMessage() { } // for EF Core
 
+    /// <summary>Called by the publisher once Kafka has acknowledged the event.</summary>
+    public void MarkSent(DateTimeOffset now) => SentAt = now;
+
     // camelCase names and enum names, the same JSON the API returns.
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
