@@ -231,4 +231,5 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - Claimants now see the Assigned Officer id; the spec lists it on the Claim.
 - **AI's view on Codex:** a clean result after a 71-second static review is weaker evidence than the Claude agents' review, which included a test run. It's still useful as an independent read that isn't anchored on Claude's.
 - **Result:** 59 tests pass, with 0 build warnings. Build time at commit: 1h56m of the 5h cap.
+- **Jay's correction (12:46):** run Codex as `codex --model gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" "<prompt>"`. The AI pointed out that this form opens Codex's interactive UI, which its agents can't drive without a terminal. **I chose** to keep my flags but run them through `codex exec`, with a read-only sandbox and the review saved to a file. `docs/agents/codex-review.md` is updated.
 

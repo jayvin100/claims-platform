@@ -4,19 +4,18 @@ Every code review that dispatches Claude review agents also runs a Codex review 
 
 ## Command
 
-Run from the repo root. Write the prompt to a scratch file first, then:
+Jay's command, run through `codex exec` (Jay's choice, 12:46). Plain `codex "<prompt>"` opens the interactive terminal UI, which a review agent can't drive. Run it from the repo root, with the prompt written to a scratch file first:
 
 ```sh
-codex exec -m gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" \
-  -s read-only -C "$(pwd)" --color never -o <scratch>/codex-review-<ticket>.md - < <scratch>/codex-review-<ticket>-prompt.md
+codex exec --model gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" \
+  -s read-only --color never -o <scratch>/codex-review-<ticket>.md "$(cat <scratch>/codex-review-<ticket>-prompt.md)"
 ```
 
-- `-m gpt-6.1-sol`: GPT 6.1 Sol (slug from `~/.codex/models_cache.json`).
-- `-c model_reasoning_effort="high"`: Jay's choice; the local config defaults to `xhigh`.
-- `-c service_tier="fast"`: fast mode. The CLI sends it as the `priority` tier; the session log under `~/.codex/sessions/` shows `"service_tier":"priority"`.
+- `--model gpt-6.1-sol`: GPT 6.1 Sol.
+- `-c model_reasoning_effort="high"`: the local config defaults to `xhigh`.
+- `-c service_tier="fast"`: fast mode. It is sent as the `priority` tier; the session log under `~/.codex/sessions/` shows `"service_tier":"priority"`.
 - `-s read-only`: Codex can read files and run git, but can't write anything.
 - `-o <file>`: the CLI saves Codex's final message there.
-- `-`: read the prompt from stdin.
 
 A review takes one to two minutes.
 
