@@ -19,7 +19,8 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:48 | 12:58 | Ticket 04 (#6): Reserve, approve, reject, settle; tests; review by two Claude agents plus Codex |
 | 12:58 | 13:00 | Plan parallel waves for the remaining tickets; per-worktree databases; fix a test start-up race |
 | 13:00 | 13:23 | Wave 1 in parallel: #7, #8, #10 built in worktrees; reviews by two Claude agents plus Codex; #10 and #7 merged; wave-1 council |
-| 13:23 | | Wave 2 running in parallel: #11, #12 builders; #8 fixer; council fixes |
+| 13:23 | 13:48 | Waves 2 and 3: #8, #9, #11, #12, #13 merged with reviews and fixers; wave-2 council; #14 README and fresh-clone check |
+| 13:48 | | 3h warning to Jay; final review and wrap-up |
 
 ---
 
@@ -558,3 +559,28 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Fixer agent (13:43–13:45):** rebased onto main, which conflicted in `app.routes.ts` (both sides kept). Its smoke check: all three Officers are listed, one with zeros. With the API stopped the error showed, and after a restart it cleared with names filled in.
 - **Implementation calls,** for the final council with #14's: the nav links are for Officers only; both reports are fetched together; users are loaded once and then reused; a failed poll keeps the last figures and shows a message; no grand total, since it would add currencies together.
 - **Result:** `ng build` is clean, and the API is unchanged (183 tests). Merged to main by rebase and fast-forward (`ee71c75`, `e82d48a`). Build time at merge: 2h57m of the 5h cap.
+
+## Entry #33 (Thu 29 Oct 13:48): ticket 12, README and fresh-clone check (#14); 3h warning
+
+- **Built by an agent** in its own worktree (13:42–13:48).
+  - **Run and test:** prerequisites, the commands to run everything, how to run the tests.
+  - **Demo script:** submit, pick up, Reserve, Info Request, answer, approve, settle, then watch Exposure drop.
+  - **Design:** an architecture summary (modules, REST versus Kafka, outbox, idempotent consumers, eventual consistency, identity) that links the ADRs and the decision log instead of repeating them.
+  - **Assumptions and limits:** the six-Markets assumption, known limits (D73, topic creation only in Development) and troubleshooting.
+  - **Scope:** what was left out, and what's next, starting with splitting out Reporting.
+- **Fresh-clone check, following only the README:**
+  - **API:** migrations ran, Swagger was up and the users were listed.
+  - **Kafka:** an email line for each step, and Exposure dropped a few seconds after the settle.
+  - **Tests:** 183 of 183 passed.
+  - **Angular app:** the full demo worked in headless Chrome, including `/dashboard`, with no console errors.
+  - **Deviations, because the machine is shared:** its own database and ports, and web security turned off in Chrome for the check.
+- **README fixes the check forced:**
+  - On the first run, EF Core logs a harmless connection "fail" line before it creates the database.
+  - Recent npm warns about install scripts.
+  - The demo now uses the amount format the Dashboard shows.
+  - Exposure drops "a few seconds later", not "a second or two", because the Dashboard polls every 5 s.
+  - Added the `docker compose down -v` troubleshooting line for a Kafka topic with leftover events.
+- **Bugs found:** none in the code. The agent noted that several APIs sharing one Kafka split each consumer group's partitions. That is expected Kafka behaviour, and it only happens on this shared machine.
+- **Lead's check before merging:** read the README and confirmed the ADR links exist. There were no separate review agents for this README-only change, to save time. A whole-repo final review follows.
+- **Merged** to main by fast-forward (`7ab1caa`).
+- **3h warning:** 3h00m of build time used, at 13:48. Tickets #3–#14 are all on main. The time left goes to a final whole-repo review, the council on #13's and #14's calls, and cleanup.
