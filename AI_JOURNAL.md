@@ -204,7 +204,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
     - The definition of "open" (neither Settled nor Rejected) is only in the Queue query so far; Workload reads events, not this table.
     - The Queue row repeats most of the My Claims row; they serve different screens.
     - Some test setup (the submit body) repeats across test files.
-  - **Known gap:** no test yet shows the Queue leaving out my Settled or Rejected Claims, because no endpoint reaches those statuses. It belongs in #7.
+  - **Known gap:** no test yet shows the Queue leaving out my Settled or Rejected Claims, because no endpoint reaches those statuses. It belongs in #6 (approve, reject, settle).
 - **Result:** 59 tests pass (12 identity, 19 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up), with 0 build warnings. Build time at commit: 1h51m of the 5h cap.
 - **My decision (12:39):** accepted D54–D59 as proposed, with no overrides. My reason: I agree with the AI's decisions; they make sense.
 
