@@ -36,3 +36,10 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Accepted:** the flow, vertical slices, and the local tracker.
 - **Overrode:** the AI suggested `CLAUDE.md` as the steering file; I chose `AGENTS.md`. Reason: _(pending Jay)_
 - **Note:** the workflow skills can't be invoked by the agent (they are marked user-invoked only), so I run each phase command myself. The agent wrote `AGENTS.md` so the working rules survive each `/clear`.
+
+## Entry #3 (Thu 29 Oct 10:56): skills setup
+
+- **Directed:** after the AI posted its recommendations on the open design questions, I told it to stop suggesting or recommending anything until I drive the next phase. Those recommendations stay unconfirmed until `/grill-with-docs`.
+- **Asked:** `/ask-matt` to check where I am in the flow, then `/setup-matt-pocock-skills`.
+- **AI proposed:** the setup skill defaults to GitHub Issues because the remote is on GitHub. The AI flagged that I had already chosen local markdown in entry #2 and kept that. It recommended the default triage labels and the single-context domain-docs layout (one `GLOSSARY.md` and `docs/adr/`).
+- **Accepted:** local markdown tracker (`.scratch/<feature>/`), default labels, single-context layout. Written to `docs/agents/` plus an `## Agent skills` block in `AGENTS.md`.

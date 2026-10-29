@@ -11,3 +11,17 @@ Read "How we work (strict)" in [docs/agent-prompt.md](docs/agent-prompt.md) befo
 - Stop and ask before adding any NuGet or npm dependency, or before changing an agreed decision.
 - Warn Jay at 3h and 4h of build time. The session started at Thu 29 Oct 10:48 +08 (see the time log in the journal).
 - Don't put client company names or logos in code, UI or docs.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown: specs and tickets live under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default roles, recorded as a `Status:` line in each ticket file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
