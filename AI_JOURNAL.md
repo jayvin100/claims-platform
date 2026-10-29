@@ -26,6 +26,9 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
 | 14:38 | 14:58 | Rehearsal parts 1–5 (#48–#52); 4h warning given in chat at 14:47; I override D74/D79 with a dead-letter topic (D90); docs and D90 builders running |
 | 14:58 | 15:10 | 4h warning recorded late; reviews of D90 and the docs; D90, the README and the overview merged (#53–#57) |
 | 15:10 | 15:17 | Final review team: 9 Claude reviewers plus 2 Codex reviews; journal fixes; fixers started (#58). 4h29m of 5h used |
+| 15:17 | 15:24 | Final-review council (D91–D93); value checks, docs fixes and polling timeout merged (#59–#60) |
+| 15:24 | 15:34 | Overview regenerated; /simplify reviewed (4 Claude plus Codex); my cleanup choices (D94); cleanups merged (#61–#62) |
+| 15:34 | 15:45 | Live UI check after the cleanups; rehearsal part 6 and my lessons (#63); final overview; GitHub #1 updated, #2 closed; clean-up (#64). 4h57m of 5h used |
 
 ---
 
@@ -1126,3 +1129,22 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - rehearsed: councils (#43), the outbox (#48, and here), duplicates (#49), D65 (#50), dead letters (#51, which led to D90), D80 (here), and D87 (here);
   - not yet in my own words: per-Claim ordering.
 - **My lessons, asked for the overview's Retro:** "actually nothing i have been building 4 - 5 apps with AI already. 1 of them is used by real users and others are waiting for like app store approval and others are WIP"
+
+## Entry #64 (Thu 29 Oct 15:45): session closed
+
+- **Final overview merged** (`4a4e12a`), built from main `c0067fb`:
+  - 211 tests, 94 decisions and entries #0–#63;
+  - D94 tagged as my own call, with the note that I chose all four cleanups against 3 of 5 reviewers;
+  - my lessons quoted as I wrote them.
+
+  It was generated before the closing time-log rows above, so it marks 15:17–15:42 as "not in the time log" and its build time ends at 15:42 (4h54m).
+- **GitHub:**
+  - #1, the map: a final-state comment with links to the README, the overview, the decisions and the journal. It stays open.
+  - #2, the spec: closed as completed, with all its tickets (#3–#14) merged.
+- **Clean-up:**
+  - all 8 agent worktrees and their branches removed, each checked as merged into main first;
+  - 38 agent-created databases dropped;
+  - my `claims` and `claims_test` databases and the Docker stack untouched;
+  - ports 5169 and 4200 free.
+- **Build time:** 10:48 to 15:45, so 4h57m of the 5h cap.
+- **Still open, mine to do before the panel:** per-Claim ordering in my own words (D89 condition 3).
