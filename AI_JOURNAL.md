@@ -799,3 +799,21 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - `/wayfinder` is shown as my choice over the AI's advice.
   - `/implement-spec` and `/retro` were in the plan from entry #2, but the parallel waves and the councils replaced them.
   - `/codebase-design` was only pulled in by `/tdd` as a reference, never run as its own session.
+
+## Entry #47 (Thu 29 Oct 14:39): last improvements chosen
+
+- **Asked:** "anything else i am missing here? any improvements you can think of?"
+- **AI proposed five, most important first:**
+  1. Rehearse my own explanations. This is the approval council's open condition.
+  2. A "who caught what" chart: bugs per reviewer, taken from the journal, as evidence for my reason for using councils.
+  3. Real screenshots of every screen.
+  4. Update the GitHub map (#1) and close the spec (#2).
+  5. A short retro. The AI gathers the facts, and I add my own lessons.
+  - **Flagged but can't be fixed:** ticket commits are large, at 900–1,500 lines, because agents built whole tickets. Setting the repo description and topics is mine to do.
+- **My decision:** all of them.
+- **Dispatched:**
+  - one agent captures screenshots on the README's ports, with real CORS;
+  - one read-only agent extracts every bug and who found it, plus the retro facts, from the journal and git;
+  - the README and overview agents leave slots for the screenshots, the chart and the retro;
+  - the lead updates GitHub at the end, once the docs links exist.
+- **Rehearsal:** the AI asks me the panel questions one at a time and records my answers in my own words.
