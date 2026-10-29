@@ -93,7 +93,7 @@ public class ClaimTests
         Assert.Equal(ClaimStatus.Submitted, claim.Status);
     }
 
-    private static readonly Guid OfficerId = Guid.Parse("22222222-0000-0000-0000-000000000001");
+    private static readonly Guid OfficerId = Guid.NewGuid(); // no database here, so any id will do
     private static readonly DateTimeOffset Later = Now.AddHours(1);
 
     [Fact]
@@ -140,11 +140,15 @@ public class ClaimTests
     public void Pick_up_is_refused_from_every_status_except_Submitted(ClaimStatus status)
     {
         var claim = InStatus(status);
+        claim.ClearEvents();
 
         var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(OfficerId, Later));
 
         Assert.Equal("Only a Submitted Claim can be picked up.", error.Message);
         Assert.Equal(status, claim.Status);
+        Assert.Null(claim.AssignedOfficerId);
+        Assert.Single(claim.History);
+        Assert.Empty(claim.Events);
     }
 
     // The Claim's methods to reach some statuses (approve, settle...) come in later tickets, so this sets

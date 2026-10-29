@@ -25,6 +25,7 @@ public class QueueController(AppDbContext db, CurrentUser currentUser) : Control
             .Where(c => c.Status == ClaimStatus.Submitted
                 || (c.AssignedOfficerId == officerId && c.Status != ClaimStatus.Settled && c.Status != ClaimStatus.Rejected))
             .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.ClaimNumber) // unique, so Claims created at the same instant don't swap between polls
             .Select(c => new QueueItemResponse(
                 c.Id, c.ClaimNumber, c.Market, c.ClaimType, c.Status, c.CreatedAt, c.AssignedOfficerId == officerId))
             .ToListAsync();

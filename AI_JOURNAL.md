@@ -15,6 +15,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:04 | 12:17 | Ticket 01 (#3): Compose, API skeleton, demo identity, tests, code review |
 | 12:20 | 12:30 | Ticket 02 (#4): Claim entity, submit/list/detail endpoints, outbox table, tests, code review |
 | 12:32 | 12:39 | Ticket 03 (#5): Queue, pick-up, `xmin` concurrency, 409 mapping, tests, code review |
+| 12:39 | 12:44 | Second review of #5 by two Claude agents plus Codex; Codex review made a standing rule |
 
 ---
 
@@ -206,4 +207,28 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Known gap:** no test yet shows the Queue leaving out my Settled or Rejected Claims, because no endpoint reaches those statuses. It belongs in #7.
 - **Result:** 59 tests pass (12 identity, 19 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up), with 0 build warnings. Build time at commit: 1h51m of the 5h cap.
 - **My decision (12:39):** accepted D54–D59 as proposed, with no overrides. My reason: I agree with the AI's decisions; they make sense.
+
+## Entry #15 (Thu 29 Oct 12:44): Codex joins every code review
+
+- **Asked:** dispatch an agent to work out how to call Codex from the CLI with GPT 6.1 Sol, high reasoning and fast mode, and have it review #5 alongside the usual Claude review agents. Then I made it a rule: until all tickets are done, every review that uses Claude agents must also run Codex, and the results must be recorded.
+- **AI did:**
+  - A sub-agent confirmed each flag from the CLI's help, config and docs instead of guessing: `codex exec -m gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" -s read-only`. The session log confirms the fast (`priority`) tier was used. The command and prompt checklist are in `docs/agents/codex-review.md`, and the rule is in AGENTS.md so it survives `/clear`.
+  - It ran three reviews of commit `b23d6ed` in parallel: Codex, a Claude standards review and a Claude spec review.
+- **Codex (GPT 6.1 Sol, high, fast; 71 seconds):** no findings on either axis. It reviewed statically and confirmed the `xmin` mapping against the Npgsql 10.0.3 docs. It didn't build or run tests, because the sandbox is read-only.
+- **Claude spec review:** all 11 acceptance criteria met; 59/59 tests pass.
+- **Claude standards review:** no hard breaches.
+- **Fixed, from the Claude reviews:**
+  - The "refused from every status" test now also checks that no Claim History entry, event or Assigned Officer was added. The spec asks each test to check those.
+  - The unit tests no longer hard-code a seeded Officer's id; they don't touch the database, so any id works (D59).
+  - The Queue breaks ties on Claim Number, so Claims created at the same instant can't swap places between polls.
+  - A long chained call in the `xmin` test is split into two lines.
+- **Left as is:**
+  - The test `DemoUser` record repeats the seeded ids instead of reading `DemoUser.Seed`. The tests check against known literal values on purpose, so a wrong seed can't make them pass.
+  - Copied submit setup across test files.
+  - "Open" is defined only in the Queue query; Reporting builds Workload from events.
+  - Any concurrency conflict gets the Claim's wording (D55).
+  - The race test usually hits the status rule; the two-context test covers `xmin`.
+  - Claimants now see the Assigned Officer id; the spec lists it on the Claim.
+- **AI's view on Codex:** a clean result after a 71-second static review is weaker evidence than the Claude agents' review, which included a test run. It's still useful as an independent read that isn't anchored on Claude's.
+- **Result:** 59 tests pass, with 0 build warnings. Build time at commit: 1h56m of the 5h cap.
 

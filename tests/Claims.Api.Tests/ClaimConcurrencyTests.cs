@@ -30,7 +30,8 @@ public class ClaimConcurrencyTests(ApiFactory factory) : IClassFixture<ApiFactor
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => dbB.SaveChangesAsync());
 
         using var scopeCheck = factory.Services.CreateScope();
-        var saved = await scopeCheck.ServiceProvider.GetRequiredService<AppDbContext>().Claims.SingleAsync(c => c.Id == claimId);
+        var dbCheck = scopeCheck.ServiceProvider.GetRequiredService<AppDbContext>();
+        var saved = await dbCheck.Claims.SingleAsync(c => c.Id == claimId);
         Assert.Equal(Priya.Id, saved.AssignedOfficerId);
     }
 
