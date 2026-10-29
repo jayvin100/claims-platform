@@ -2,14 +2,10 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { apiBaseUrl } from '../api';
+import { Claim, ClaimStatus, ClaimType, Market } from '../claims';
 
-// The Claimant's side of the REST contract, written by hand (D27) to match
-// src/Claims.Api/Claims/ClaimContracts.cs. Enums travel as their names; dates as ISO strings.
-
-export type Market = 'SG' | 'MY' | 'HK' | 'TH' | 'ID' | 'PH';
-export type ClaimType = 'Motor' | 'Property';
-export type ClaimStatus =
-  'Submitted' | 'UnderReview' | 'InfoRequested' | 'Approved' | 'Settled' | 'Rejected';
+// The Claimant's own shapes and endpoints, written by hand (D27) to match
+// src/Claims.Api/Claims/ClaimContracts.cs. The Claim itself and its helpers are in ../claims.ts.
 
 export interface SubmitClaimRequest {
   policyNumber: string;
@@ -28,39 +24,6 @@ export interface ClaimSummary {
   claimType: ClaimType;
   status: ClaimStatus;
   createdAt: string;
-}
-
-export interface ClaimHistoryEntry {
-  status: ClaimStatus;
-  description: string;
-  occurredAt: string;
-}
-
-/** answer and answeredAt are null while the Info Request is open. */
-export interface InfoRequest {
-  question: string;
-  answer: string | null;
-  requestedAt: string;
-  answeredAt: string | null;
-}
-
-export interface Claim {
-  id: string;
-  claimNumber: string;
-  policyNumber: string;
-  market: Market;
-  currency: string;
-  claimType: ClaimType;
-  incidentDate: string;
-  description: string;
-  status: ClaimStatus;
-  claimantId: string;
-  assignedOfficerId: string | null;
-  reserveAmount: number | null;
-  createdAt: string;
-  updatedAt: string;
-  history: ClaimHistoryEntry[];
-  infoRequests: InfoRequest[];
 }
 
 @Injectable({ providedIn: 'root' })

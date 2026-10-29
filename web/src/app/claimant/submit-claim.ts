@@ -1,18 +1,37 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  NonNullableFormBuilder,
+  ReactiveFormsModule,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Claim, ClaimType, ClaimantApi, Market } from './claimant-api';
-import { errorLines, markets, statusLabel } from './display';
+import { Claim, ClaimType, Market, problemMessage, statusLabels } from '../claims';
+import { ClaimantApi } from './claimant-api';
+import { markets, todayIn } from './display';
 
 // Spaces alone pass Validators.required but the API refuses them, so catch them here too.
 const notBlank = Validators.pattern(/\S/);
 
 /**
+ * The incident date can't be after today on the chosen Market's clock (D47). Dates written
+ * YYYY-MM-DD compare correctly as strings. With no Market chosen yet there's no clock to check
+ * against, so it waits; the Market's own "required" error shows instead.
+ */
+const notInFuture: ValidatorFn = (control) => {
+  const market = markets.find((m) => m.code === control.parent?.get('market')?.value);
+  if (!market || !control.value) {
+    return null;
+  }
+  return control.value > todayIn(market.timeZone) ? { future: true } : null;
+};
+
+/**
  * The Claimant reports a Claim. The form checks what it can before sending (required fields and
- * lengths, the same limits as SubmitClaimRequest); the API checks everything again, including that
- * the incident date isn't in the future on the Market's own clock, and its message is shown as is.
+ * lengths, the same limits as SubmitClaimRequest, and an incident date not in the future); the API
+ * checks everything again and is the real guard, and its message is shown as is.
  */
 @Component({
   selector: 'app-submit-claim',
@@ -24,7 +43,7 @@ const notBlank = Validators.pattern(/\S/);
     @if (submitted(); as claim) {
       <p class="confirmation">
         Your Claim Number is <strong>{{ claim.claimNumber }}</strong
-        >. Its status is {{ statusLabel(claim.status) }}.
+        >. Its status is {{ statusLabels[claim.status] }}.
       </p>
       <p><a [routerLink]="['/my-claims', claim.id]">Open the Claim</a></p>
     } @else {
@@ -70,7 +89,11 @@ const notBlank = Validators.pattern(/\S/);
           <input type="date" formControlName="incidentDate" />
         </label>
         @if (showError('incidentDate')) {
-          <p class="error">Enter the date of the incident.</p>
+          @if (form.controls.incidentDate.hasError('future')) {
+            <p class="error">The incident date can't be in the future.</p>
+          } @else {
+            <p class="error">Enter the date of the incident.</p>
+          }
         }
 
         <label>
@@ -81,8 +104,8 @@ const notBlank = Validators.pattern(/\S/);
           <p class="error">Describe what happened.</p>
         }
 
-        @for (line of serverError(); track $index) {
-          <p class="error">{{ line }}</p>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
         }
 
         <button type="submit" [disabled]="sending()">
@@ -116,13 +139,13 @@ export class SubmitClaim {
   private readonly api = inject(ClaimantApi);
 
   protected readonly markets = markets;
-  protected readonly statusLabel = statusLabel;
+  protected readonly statusLabels = statusLabels;
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     policyNumber: ['', [Validators.required, notBlank, Validators.maxLength(50)]],
     market: ['' as Market | '', Validators.required],
     claimType: ['' as ClaimType | '', Validators.required],
-    incidentDate: ['', Validators.required],
+    incidentDate: ['', [Validators.required, notInFuture]],
     description: ['', [Validators.required, notBlank, Validators.maxLength(2000)]],
   });
 
@@ -135,9 +158,18 @@ export class SubmitClaim {
   protected readonly sending = signal(false);
   /** Whether Submit has been pressed: field errors only show after that, not while typing. */
   private readonly tried = signal(false);
-  protected readonly serverError = signal<string[]>([]);
+  /** The API's refusal, if it sent one. */
+  protected readonly error = signal('');
   /** The new Claim, once the API has accepted it. */
   protected readonly submitted = signal<Claim | null>(null);
+
+  constructor() {
+    // The date's validity depends on the Market's clock, so check it again when the Market changes.
+    // The form belongs to this screen, so the subscription ends with it.
+    this.form.controls.market.valueChanges.subscribe(() =>
+      this.form.controls.incidentDate.updateValueAndValidity(),
+    );
+  }
 
   protected showError(field: keyof typeof this.form.controls): boolean {
     return this.tried() && this.form.controls[field].invalid;
@@ -145,7 +177,7 @@ export class SubmitClaim {
 
   protected submit(): void {
     this.tried.set(true);
-    this.serverError.set([]);
+    this.error.set('');
     if (this.form.invalid) {
       return;
     }
@@ -157,7 +189,7 @@ export class SubmitClaim {
       .subscribe({
         next: (claim) => this.submitted.set(claim),
         error: (err: HttpErrorResponse) => {
-          this.serverError.set(errorLines(err));
+          this.error.set(problemMessage(err));
           this.sending.set(false);
         },
       });

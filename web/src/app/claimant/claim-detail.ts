@@ -4,9 +4,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { EMPTY, Subject, catchError, merge, switchMap, timer } from 'rxjs';
-import { Claim, ClaimantApi } from './claimant-api';
-import { errorLines, formatAmount, marketName, statusLabel } from './display';
+import { EMPTY, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
+import { Claim, formatAmount, problemMessage, statusLabels } from '../claims';
+import { ClaimantApi } from './claimant-api';
+import { marketName } from './display';
 
 // The Claim's rejection reason is kept in its Claim History entry, not a field of its own (D62).
 const rejectedPrefix = 'Claim rejected: ';
@@ -21,13 +22,13 @@ const rejectedPrefix = 'Claim rejected: ';
   template: `
     <p><a routerLink="/my-claims">Back to My Claims</a></p>
 
-    @for (line of loadError(); track $index) {
-      <p class="error">{{ line }}</p>
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
     }
 
     @if (claim(); as claim) {
       <h1>{{ claim.claimNumber }}</h1>
-      <p class="status">{{ statusLabel(claim.status) }}</p>
+      <p class="status">{{ statusLabels[claim.status] }}</p>
 
       @if (rejectionReason(); as reason) {
         <p class="decision">Your Claim was rejected. Reason: {{ reason }}</p>
@@ -70,8 +71,8 @@ const rejectedPrefix = 'Claim rejected: ';
                 Your answer
                 <textarea formControlName="answer" rows="4" maxlength="2000"></textarea>
               </label>
-              @for (line of answerError(); track $index) {
-                <p class="error">{{ line }}</p>
+              @if (answerError()) {
+                <p class="error">{{ answerError() }}</p>
               }
               <button type="submit" [disabled]="sending()">
                 {{ sending() ? 'Sending…' : 'Send answer' }}
@@ -89,11 +90,11 @@ const rejectedPrefix = 'Claim rejected: ';
           <li>
             <span class="when">{{ entry.occurredAt | date: 'd MMM y, HH:mm' }}</span>
             <span class="text">{{ entry.description }}</span>
-            <span class="status-tag">{{ statusLabel(entry.status) }}</span>
+            <span class="status-tag">{{ statusLabels[entry.status] }}</span>
           </li>
         }
       </ol>
-    } @else if (loadError().length === 0) {
+    } @else if (!error()) {
       <p>Loading the Claim…</p>
     }
   `,
@@ -154,13 +155,14 @@ export class ClaimDetail {
 
   /** null until the first answer arrives. */
   protected readonly claim = signal<Claim | null>(null);
-  protected readonly loadError = signal<string[]>([]);
+  /** Why the Claim couldn't be loaded. */
+  protected readonly error = signal('');
 
   protected readonly answerForm = new FormGroup({
     answer: new FormControl('', { nonNullable: true }),
   });
   protected readonly sending = signal(false);
-  protected readonly answerError = signal<string[]>([]);
+  protected readonly answerError = signal('');
 
   /** Shown only when Rejected: the reason the Officer gave, from the last Claim History entry. */
   protected readonly rejectionReason = computed(() => {
@@ -175,11 +177,13 @@ export class ClaimDetail {
   });
 
   protected readonly marketName = marketName;
-  protected readonly statusLabel = statusLabel;
+  protected readonly statusLabels = statusLabels;
   protected readonly formatAmount = formatAmount;
 
   /** Fetches the Claim at once, outside the 5-second rhythm. */
   private readonly refresh = new Subject<void>();
+  /** Fires once if the Claim doesn't exist (or isn't theirs), to stop polling for it. */
+  private readonly notFound = new Subject<void>();
 
   constructor() {
     // Ask now, then every 5 seconds, and also whenever refresh fires. switchMap drops a request still
@@ -189,24 +193,32 @@ export class ClaimDetail {
         switchMap(() =>
           this.api.get(this.id).pipe(
             catchError((err: HttpErrorResponse) => {
-              this.loadError.set(errorLines(err));
+              this.error.set(problemMessage(err));
+              if (err.status === 404) {
+                this.notFound.next();
+              }
               return EMPTY;
             }),
           ),
         ),
+        takeUntil(this.notFound),
         takeUntilDestroyed(),
       )
       .subscribe((claim) => {
         this.claim.set(claim);
-        this.loadError.set([]);
+        this.error.set('');
+        // Once the Info Request is answered (here or in another tab), its old error no longer applies.
+        if (claim.status !== 'InfoRequested') {
+          this.answerError.set('');
+        }
       });
   }
 
   protected sendAnswer(): void {
-    this.answerError.set([]);
+    this.answerError.set('');
     const answer = this.answerForm.controls.answer.value;
     if (answer.trim() === '') {
-      this.answerError.set(['Write your answer before sending it.']);
+      this.answerError.set('Write your answer before sending it.');
       return;
     }
     this.sending.set(true);
@@ -220,7 +232,7 @@ export class ClaimDetail {
         this.refresh.next();
       },
       error: (err: HttpErrorResponse) => {
-        this.answerError.set(errorLines(err));
+        this.answerError.set(problemMessage(err));
         this.sending.set(false);
       },
     });

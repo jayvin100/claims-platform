@@ -1,10 +1,10 @@
 import { Routes } from '@angular/router';
-import { ClaimDetail } from './claimant/claim-detail';
+import { ClaimDetail as ClaimantClaimDetail } from './claimant/claim-detail';
 import { MyClaims } from './claimant/my-claims';
 import { SubmitClaim } from './claimant/submit-claim';
 import { RolePicker } from './identity/role-picker';
 import { claimantGuard, noUserGuard, officerGuard } from './identity/role-guards';
-import { ClaimDetail } from './officer/claim-detail';
+import { ClaimDetail as OfficerClaimDetail } from './officer/claim-detail';
 import { Queue } from './officer/queue';
 
 // Every screen except the role picker sits behind the guard for its role.
@@ -18,8 +18,13 @@ export const routes: Routes = [
     canActivate: [claimantGuard],
     title: 'Report a Claim',
   },
-  { path: 'my-claims/:id', component: ClaimDetail, canActivate: [claimantGuard], title: 'Claim' },
+  {
+    path: 'my-claims/:id',
+    component: ClaimantClaimDetail,
+    canActivate: [claimantGuard],
+    title: 'Claim',
+  },
   { path: 'queue', component: Queue, canActivate: [officerGuard], title: 'Queue' },
-  { path: 'queue/:id', component: ClaimDetail, canActivate: [officerGuard], title: 'Claim' },
+  { path: 'queue/:id', component: OfficerClaimDetail, canActivate: [officerGuard], title: 'Claim' },
   { path: '**', redirectTo: '' },
 ];

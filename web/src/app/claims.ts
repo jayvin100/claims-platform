@@ -73,6 +73,11 @@ export function problemMessage(err: HttpErrorResponse): string {
   if (err.status === 0) {
     return 'The API did not answer. Is it running?';
   }
+  // The API's 404 says only "Not Found". It means the Claim doesn't exist or, for a Claimant, isn't
+  // theirs; the API doesn't say which (D23), so neither do we.
+  if (err.status === 404) {
+    return 'This Claim was not found.';
+  }
   const body = err.error;
   if (body?.errors) {
     // { "Reason": ["The Reason field is required."], ... } -> one line
