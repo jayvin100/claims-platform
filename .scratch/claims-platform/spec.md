@@ -341,7 +341,7 @@ Responses that change a Claim return its updated state, so the frontend doesn't 
 
 ## Further Notes
 
-- **Gaps filled while writing this spec**, not decided in the grilling (confirm or override):
+- **Gaps filled while writing this spec**, not decided in the grilling. Jay confirmed all five:
   - Reject requires a reason, and the Claimant sees it.
   - Missing or unknown identity headers return 401.
   - An Officer acting on another Officer's Claim gets 403 rather than 404, because Officers may see every Claim.

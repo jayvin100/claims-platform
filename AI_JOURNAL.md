@@ -68,4 +68,16 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Confirmed:** I told the AI we have a shared understanding of the design and of what the brief asks for, which closed the grilling.
 - **AI proposed three test seams:** the HTTP API (real Postgres), the Claim's public methods (plain unit tests), and Reporting's apply-event method (no Kafka). The outbox worker, Kafka adapters, Notifications and Angular are checked by hand. **Accepted.**
 - **AI wrote** `.scratch/claims-platform/spec.md` (64 user stories, REST contract, events, read model, tests, out of scope).
-- **AI flagged gaps it filled itself** (in the spec's Further Notes) for me to confirm or override: reject needs a reason; missing identity headers return 401; an Officer acting on another Officer's Claim gets 403; Reporting stores current state per Claim rather than running totals; Notifications skip ReserveSet and InfoProvided. My decision: _(pending Jay)_
+- **AI flagged gaps it filled itself** (in the spec's Further Notes) for me to confirm or override: reject needs a reason; missing identity headers return 401; an Officer acting on another Officer's Claim gets 403; Reporting stores current state per Claim rather than running totals; Notifications skip ReserveSet and InfoProvided. **Accepted all five.**
+
+## Entry #7 (Thu 29 Oct 11:12): tickets (`/to-tickets`)
+
+- **AI proposed** 12 tickets in `.scratch/claims-platform/issues/`, each with its blocking tickets:
+  - Backend slices first (01–07): skeleton, submit and track, Queue and pick-up, assess and decide, Info Requests, outbox → Kafka → notifications, Workload and Exposure read model.
+  - Then Angular (08–11), with the dashboard cut first if time runs short.
+  - Then README and the fresh-clone check (12).
+- **AI flagged:**
+  - It departed from the skill's rule that each slice includes the UI, following the brief's "start with the backend".
+  - It merged the outbox publisher with the Notifications consumer so ticket 06 can be shown working end to end.
+  - Tickets 04 and 05 could run in parallel, but both change the Claim, so running them one after the other is safer.
+- **Accepted** the breakdown as proposed.
