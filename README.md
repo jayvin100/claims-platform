@@ -1,36 +1,55 @@
 # Claims Platform
 
-A claims platform for motor and property claims across six APAC Markets. Claimants report Claims and track them. Officers pick them up, assess them, and approve, reject or settle them. One Angular app serves both. An ASP.NET Core API is the backend. It uses REST for anything a user waits on and Kafka for domain events.
+Motor and property Claims across six APAC Markets. Claimants report and track Claims; Officers assess, approve, reject and settle them. One Angular app, one ASP.NET Core API, Kafka for domain events.
 
-Domain terms (Claim, Officer, Reserve, Exposure and so on) are used as [GLOSSARY.md](GLOSSARY.md) defines them.
+For a visual tour (architecture, every decision, and the build journal as a timeline), open [docs/overview.html](docs/overview.html) in a browser.
+
+Domain terms mean what [GLOSSARY.md](GLOSSARY.md) says.
+
+## Screens
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/01-role-picker.png" alt="Role picker" width="400"><br>Role picker: choose a demo Claimant or Officer</td>
+    <td><img src="docs/screenshots/02-my-claims.png" alt="My Claims" width="400"><br>My Claims: a Claimant's Claims, newest first</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/03-claimant-claim-detail.png" alt="Claimant Claim detail" width="400"><br>Claimant's Claim: status timeline and Info Requests</td>
+    <td><img src="docs/screenshots/04-submit-claim.png" alt="Report a Claim" width="400"><br>Report a Claim</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/05-officer-queue.png" alt="Officer Queue" width="400"><br>Officer Queue: unassigned and own Claims, oldest first</td>
+    <td><img src="docs/screenshots/06-officer-claim-detail.png" alt="Officer Claim detail" width="400"><br>Officer's Claim: Reserve, Info Request and decisions</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/07-dashboard.png" alt="Dashboard" width="400"><br>Dashboard: Workload and Exposure per Market</td>
+    <td></td>
+  </tr>
+</table>
 
 ## Prerequisites
 
-- .NET 10 SDK (the brief asks for .NET 8 or later; 10 is the current LTS)
-- Node.js 22.22.3+, 24.15+ or 26+ (what Angular 22 supports), with npm
-- Docker, with Docker Compose
+| Tool | Version |
+|------|---------|
+| .NET SDK | 10 (brief: 8 or later; 10 is the current LTS) |
+| Node.js, with npm | 22.22.3+, 24.15+ or 26+ (what Angular 22 supports) |
+| Docker | With Docker Compose |
 
 ## Run it
 
-Run these from the repo root, each long-running one in its own terminal.
+From the repo root; one terminal per long-running command.
 
 ```sh
-docker compose up -d --wait          # Postgres (host port 5433) and Kafka (host port 9092)
-dotnet tool restore                  # the local dotnet-ef tool
-dotnet run --project src/Claims.Api  # the API on http://localhost:5169
+docker compose up -d --wait          # Postgres on 5433, Kafka on 9092
+dotnet tool restore                  # local dotnet-ef tool
+dotnet run --project src/Claims.Api  # the API
 ```
-
-On startup in Development, the API applies migrations, seeds five demo users and creates the Kafka topic `claim-events`. Kafka is on by default (`Kafka:Enabled` in `src/Claims.Api/appsettings.json`). If Kafka isn't up yet, the API still serves REST and keeps retrying in the background. On the very first run, EF Core may log one `fail: ... An error occurred using the connection to database 'claims'` line before it creates the database. It is harmless.
-
-In a second terminal:
 
 ```sh
 cd web
 npm install
-npm start                            # the Angular app on http://localhost:4200
+npm start                            # the Angular app
 ```
-
-Recent npm versions may warn that some packages' install scripts were not run (`install-scripts ... not yet covered by allowScripts`). The app builds and runs without them, so you can ignore the warning.
 
 | What | Where |
 |------|-------|
@@ -38,7 +57,9 @@ Recent npm versions may warn that some packages' install scripts were not run (`
 | The API | http://localhost:5169 |
 | Swagger UI | http://localhost:5169/swagger |
 
-In Swagger, call `GET /api/users` first. Then use **Authorize** to enter a user's `id` as `X-User-Id` and their `role` as `X-Role`. Every other endpoint needs both headers.
+In Development, startup applies migrations, seeds five demo users and creates the topic `claim-events`. Kafka is on by default (`Kafka:Enabled` in `src/Claims.Api/appsettings.json`). If Kafka is down, REST still works and Kafka is retried.
+
+**Swagger:** call `GET /api/users`, then **Authorize** with a user's `id` as `X-User-Id` and `role` as `X-Role`. Every other endpoint needs both.
 
 ## Run the tests
 
@@ -46,94 +67,337 @@ In Swagger, call `GET /api/users` first. Then use **Authorize** to enter a user'
 dotnet test
 ```
 
-The tests need the Compose Postgres running. They use their own database, `claims_test`, and switch all Kafka work off, so Kafka doesn't need to be up. There are no Angular tests (out of scope).
+Needs the Compose Postgres (database `claims_test`). Kafka is switched off, so it needn't be up. No Angular tests (out of scope).
 
 ## Demo script
 
-The demo users are two Claimants (Aisha Rahman, Daniel Tan) and three Officers (Priya Nair, Marcus Lim, Siti Hassan). Use **Switch user** in the header to change who you are. Keep the API terminal visible: the simulated emails are printed there.
+| Claimants | Officers |
+|-----------|----------|
+| Aisha Rahman, Daniel Tan | Priya Nair, Marcus Lim, Siti Hassan |
 
-1. **Claimant submits.** Pick Aisha Rahman. Choose **Report a Claim** and enter any Policy Number, Market Singapore, Motor, today's date, a short description. She gets a Claim Number such as `CLM-SG-000001`, and the Claim shows as Submitted. The API console prints a simulated email: `Simulated email to Claimant ...: "We've received your Claim CLM-SG-000001"`.
-2. **Officer picks it up.** Switch to Priya Nair. The Claim is in her Queue. Open it and pick it up; it moves to Under Review. Set a Reserve, say 5000. Request info with a question. (The Claimant can see the Reserve too; that is by design, D65.)
-3. **Claimant answers.** Switch to Aisha. The Claim shows Info Requested and the question. Answer it. The Claim goes back to Under Review. Her timeline shows every step.
-4. **Officer approves.** Switch to Priya. Open the Claim and approve it. Then open **Dashboard**: the Singapore row of Exposure counts the Claim as open, with SGD 5,000.00 in Open Reserves.
-5. **Officer settles, and Exposure drops.** Open the Claim again and settle it. The Claim shows Settled at once. To watch the drop, keep the Dashboard open in a second window while you settle: the Singapore open count and Open Reserves drop after the Claim does, typically within a second, plus up to 5 seconds until the Dashboard's next refresh. That lag is eventual consistency. The Queue and Claim screens read live data, while the Dashboard reads Reporting's read model, which is fed through Kafka. Approving and settling each email Aisha in the API console.
+Use **Switch user** in the header. Watch the API terminal: simulated emails print there.
 
-To see the conflict rule, open a Submitted Claim as two different Officers in two separate browser windows. Make one a private window, because the chosen demo user is shared through localStorage. Pick Priya in one and Marcus in the other, then click **Pick up** in both within 5 seconds (before the next refresh hides the button). The second gets a clear 409 message. Or, in Swagger, send the same pick-up call twice, once with each Officer's `X-User-Id` and `X-Role`.
+1. **Claimant submits.** As Aisha, **Report a Claim**: any Policy Number, Singapore, Motor, today, a description. She gets a Claim Number such as `CLM-SG-000001`, Submitted. The console prints `Simulated email to Claimant <id>: "We've received your Claim CLM-SG-000001" - ...`.
+2. **Officer picks it up.** As Priya, open it from the Queue and pick it up: Under Review. Set a Reserve of 5000. Request info. (Claimants see the Reserve too, by design: D65.)
+3. **Claimant answers.** As Aisha, see Info Requested and the question. Answer: back to Under Review. The timeline shows every step.
+4. **Officer approves.** As Priya, approve. **Dashboard**: Singapore counts it as open, SGD 5,000.00 in Open Reserves.
+5. **Officer settles.** With the Dashboard open in a second window, settle. The Claim is Settled at once. Singapore's open count and Open Reserves drop typically within a second, plus up to 5 seconds until the next refresh: eventual consistency.
+
+Picking up, requesting info, approving and settling each email Aisha.
+
+**Conflict rule:** open one Submitted Claim as Priya, and as Marcus in a private window (the demo user is shared through localStorage). Click **Pick up** in both within 5 seconds, before the refresh hides the button. The second gets a clear 409. Or send the pick-up twice in Swagger, once per Officer.
 
 ## Architecture
 
-**One API, three modules** (a modular monolith, [ADR-0001](docs/adr/0001-modular-monolith.md)). Each module is a folder in `src/Claims.Api`.
+### The pieces
 
-- **Claims** owns the Claim, its Info Requests and its Claim History, and every REST endpoint that reads or changes them.
-- **Notifications** consumes events and writes simulated emails to a log table and the console.
-- **Reporting** consumes events into its own read model and serves Workload and Exposure.
+ADR: [0001](docs/adr/0001-modular-monolith.md), [0004](docs/adr/0004-transactional-outbox.md), [0005](docs/adr/0005-one-topic-keyed-by-claim.md). Decisions: D25, D90.
 
-Notifications and Reporting never read the Claims tables. They only know what the events tell them. That is the seam a later split would follow.
+```mermaid
+flowchart LR
+    web["Angular app<br/>localhost:4200"]
 
-**REST vs Kafka** ([ADR-0003](docs/adr/0003-rest-for-requests-kafka-for-events.md)). If someone is waiting for the answer, it's REST. Submitting, picking up and deciding are all REST calls that change the Claim and answer straight away. If nobody is waiting, it's an event on Kafka. Emails and the Dashboard figures are built from events. One topic, `claim-events`, is keyed by Claim id, so each Claim's events stay in order ([ADR-0005](docs/adr/0005-one-topic-keyed-by-claim.md)).
+    subgraph api["API, localhost:5169"]
+        claims["Claims module"]
+        publisher["Outbox publisher<br/>polls every 1 s"]
+        notif["Notifications module"]
+        rep["Reporting module"]
+    end
 
-**Outbox** ([ADR-0004](docs/adr/0004-transactional-outbox.md)). A change to a Claim and its event are saved in one database transaction. A background worker publishes saved events to Kafka every second. REST requests never talk to Kafka, so a Kafka outage can't fail a Claimant's action, and a crash can delay an event but not lose it.
+    subgraph pg["Postgres, port 5433"]
+        ctables[("Claims tables")]
+        outbox[("outbox")]
+        ntables[("notification_log")]
+        rtables[("reporting_claims")]
+    end
 
-**Idempotent consumers.** Delivery is at-least-once, so an event can arrive twice. Each consumer records the event ids it has processed, in the same transaction as its own changes, and skips any it has seen. It commits its Kafka offset only after that transaction succeeds.
+    kafka[["Kafka topic claim-events<br/>keyed by Claim id"]]
+    dlq[["Dead-letter topic<br/>claim-events-dlq"]]
 
-**Eventual consistency.** The Queue and Claim screens read live data. The Dashboard reads Reporting's read model, which lags the live data by a second or two. The screens poll every 5 seconds, so while Kafka and the consumers are healthy, a change typically takes up to about 6 seconds to show on the Dashboard.
+    web -->|"REST: submit, pick up, decide"| claims
+    claims -->|"one transaction"| ctables
+    claims -->|"one transaction"| outbox
+    publisher -->|"reads unsent rows"| outbox
+    publisher -->|"publishes"| kafka
+    kafka -->|"group: notifications"| notif
+    kafka -->|"group: reporting"| rep
+    notif --> ntables
+    rep --> rtables
+    notif -.->|"poison message"| dlq
+    rep -.->|"poison message"| dlq
+    web -->|"REST: Workload, Exposure"| rep
+```
 
-**Identity** ([ADR-0006](docs/adr/0006-trusted-identity-headers.md)). There is no login. The role picker sends `X-User-Id` and `X-Role`, and the API trusts them. Every authorisation rule is still enforced by the API and tested.
+A modular monolith: one API, three modules, each a folder in `src/Claims.Api`.
 
-The full reasoning for every choice, and what each was chosen over, is in the [decision log](docs/decisions.md) and the [ADRs](docs/adr/).
+| Module | Owns |
+|--------|------|
+| **Claims** | The Claim, Info Requests, Claim History, and their REST endpoints |
+| **Notifications** | Simulated emails, to a log table and the console |
+| **Reporting** | Its own read model; serves Workload and Exposure |
+
+Notifications and Reporting read only events, never the Claims tables: the seam a later split follows.
+
+### REST vs Kafka
+
+ADR: [0003](docs/adr/0003-rest-for-requests-kafka-for-events.md), [0005](docs/adr/0005-one-topic-keyed-by-claim.md).
+
+```mermaid
+flowchart TD
+    q{"Is someone waiting<br/>for the answer?"}
+    q -->|Yes| rest["REST<br/>submit, pick up, decide"]
+    q -->|No| event["Event on Kafka<br/>emails, Dashboard figures"]
+    rest --> now["Changes the Claim and answers straight away"]
+    event --> later["Built from events; nobody waits"]
+    later -.->|"poison message"| dlq["claim-events-dlq<br/>handled by hand, D90"]
+```
+
+One topic, `claim-events`, keyed by Claim id, so each Claim's events stay in order.
+
+### Claim status flow
+
+Decisions: D11, D12, and the spec's status table.
+
+```mermaid
+stateDiagram-v2
+    state "Under Review" as UnderReview
+    state "Info Requested" as InfoRequested
+
+    [*] --> Submitted: Claimant submits
+    Submitted --> UnderReview: Officer picks up
+    UnderReview --> UnderReview: Officer sets or revises the Reserve
+    UnderReview --> InfoRequested: Officer requests info
+    InfoRequested --> UnderReview: Claimant answers
+    UnderReview --> Approved: Officer approves, needs a Reserve
+    UnderReview --> Rejected: Officer rejects, with a reason
+    Approved --> Settled: Officer settles
+    Rejected --> [*]
+    Settled --> [*]
+```
+
+Setting the Reserve, requesting info, approving, rejecting and settling are for the Assigned Officer only (D11). Pick-up checks only that the Claim is Submitted. Settled and Rejected are final.
+
+### Which response a request gets
+
+Decisions: D12, D13, D23, D60, D66. Order checked against `Claim.cs` and `ClaimsController.cs`.
+
+```mermaid
+flowchart TD
+    start(["Request arrives"]) --> id{"X-User-Id and X-Role missing,<br/>malformed or not a demo user?"}
+    id -->|Yes| r401["401"]
+    id -->|No| role{"Wrong role<br/>for the endpoint?"}
+    role -->|Yes| r403a["403"]
+    role -->|No| body{"Body malformed?<br/>missing, blank or too long"}
+    body -->|Yes| r400a["400, D66"]
+    body -->|No| vis{"Claim missing, or<br/>another Claimant's?"}
+    vis -->|Yes| r404["404, D23"]
+    vis -->|No| held{"Reserve, info request or decision<br/>on a Claim another Officer holds?"}
+    held -->|Yes| r403b["403, D60"]
+    held -->|No| status{"Status doesn't allow it?<br/>includes picking up a held Claim"}
+    status -->|Yes| r409a["409, D12"]
+    status -->|No| reserve{"Approving with<br/>no Reserve set?"}
+    reserve -->|Yes| r409c["409, D12"]
+    reserve -->|No| input{"Other bad input?<br/>such as a Reserve of zero or less"}
+    input -->|Yes| r400b["400, D12"]
+    input -->|No| save{"Claim changed by someone<br/>else since it loaded?"}
+    save -->|Yes| r409b["409, D13"]
+    save -->|No| ok["200 or 201"]
+```
+
+The first rule a request breaks decides the answer. Pick-up has no Assigned Officer check, so a second Officer gets 409.
+
+### One change, end to end
+
+ADR: [0004](docs/adr/0004-transactional-outbox.md), [0005](docs/adr/0005-one-topic-keyed-by-claim.md). Decision: D16.
+
+```mermaid
+sequenceDiagram
+    participant UI as Angular app
+    participant C as Claims module
+    participant DB as Postgres
+    participant P as Outbox publisher
+    participant K as Kafka claim-events
+    participant N as Notifications
+    participant R as Reporting
+
+    UI->>C: POST /api/claims/id/settle
+    C->>DB: Save Claim and outbox row in one transaction
+    C-->>UI: 200, Claim is Settled
+    loop every 1 s
+        P->>DB: Read unsent outbox rows
+        P->>K: Publish, keyed by Claim id
+        P->>DB: Mark row sent after Kafka acks
+    end
+    par group notifications
+        K->>N: ClaimSettled
+        N->>DB: Save email and event id in one transaction
+        N->>K: Commit offset after the transaction
+    and group reporting
+        K->>R: ClaimSettled
+        R->>DB: Update read model and event id in one transaction
+        R->>K: Commit offset after the transaction
+    end
+    UI->>R: Dashboard polls Exposure every 5 s
+    R-->>UI: Open count and Open Reserves have dropped
+```
+
+REST never talks to Kafka: a Kafka outage can't fail a Claimant's action, and a crash can delay an event but not lose it.
+
+### What a consumer does with a message
+
+Decisions: D16, D90 (supersedes D68's skip for unknown types, D74 and D79). ADR: [0005](docs/adr/0005-one-topic-keyed-by-claim.md).
+
+```mermaid
+flowchart TD
+    msg(["Message from claim-events"]) --> read{"Readable?<br/>event-type header, a value,<br/>a known event type, JSON that fits it"}
+    read -->|"No: poison"| dlq["Copy to claim-events-dlq<br/>headers dlq-consumer, dlq-reason, dlq-source"]
+    read -->|Yes| seen{"Event id already processed<br/>by this consumer?"}
+    seen -->|Yes| commit["Commit offset"]
+    seen -->|No| rule{"Does this consumer<br/>handle the event type?"}
+    rule -->|"No: poison"| dlq
+    rule -->|Yes| tx["Save the change and the processed id<br/>in one transaction"]
+    tx -->|"saved"| commit
+    tx -->|"database or other error"| retry["Retry the same message<br/>in place after 5 s"]
+    dlq -->|"send acknowledged"| commit
+    dlq -->|"send fails"| retry
+    retry -.-> msg
+```
+
+Poison (missing or null required fields, a null event-type header, an unknown type) is never recorded as processed, so nothing stalls and a replayed copy counts as new.
+
+### Eventual consistency and identity
+
+| Topic | Rule |
+|-------|------|
+| **Eventual consistency** | The Queue and Claim screens read live data. The Dashboard reads Reporting's read model, a second or two behind. My Claims, Claim detail (both roles), the Queue and the Dashboard poll every 5 s. While Kafka and the consumers are healthy, a change typically reaches the Dashboard within about 6 s |
+| **Identity** ([ADR-0006](docs/adr/0006-trusted-identity-headers.md)) | No login. The role picker sends `X-User-Id` and `X-Role`; the API trusts them, and still enforces and tests every authorisation rule |
+
+Every choice and its alternatives: the [decision log](docs/decisions.md) and the [ADRs](docs/adr/).
 
 ## Assumptions
 
-- **The six Markets** are Singapore (SG, SGD), Malaysia (MY, MYR), Hong Kong (HK, HKD), Thailand (TH, THB), Indonesia (ID, IDR) and the Philippines (PH, PHP). Each has exactly one currency. The currency comes from the Market and is never entered. Amounts in different currencies are never added together (D7).
-- Policy Numbers are typed in and not verified (D8).
+**Six Markets, one currency each.** Currency comes from the Market and is never entered or added across currencies (D7).
+
+| Market | Code | Currency |
+|--------|------|----------|
+| Singapore | SG | SGD |
+| Malaysia | MY | MYR |
+| Hong Kong | HK | HKD |
+| Thailand | TH | THB |
+| Indonesia | ID | IDR |
+| Philippines | PH | PHP |
+
+Policy Numbers are typed in and not verified (D8).
 
 ## Known limits
 
-- The Angular app holds amounts as JavaScript numbers, so it is exact to about 15 significant digits. The API, the database and the Claim History timeline are exact (D73).
-- The API creates the Kafka topics (`claim-events` and `claim-events-dlq`) at startup in Development only. Elsewhere they must already exist.
-- A Kafka message a consumer can't read, or whose event type it doesn't know, is copied to the dead-letter topic `claim-events-dlq` and the consumer moves on, so nothing stalls (D90). Headers say which consumer sent it there, why, and where it came from; each consumer sends its own copy. Replay is by hand for now (automated replay is next), and until then Reporting's totals miss that event. A late replay can move Reporting's row back to an older status, so check the Claim's current state first, or rebuild the row from its events in order. To inspect it: `docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic claim-events-dlq --from-beginning --property print.headers=true`
-- Optimistic concurrency (`xmin`) catches two saves at the same time, not a stale screen. An Officer who approves from an old tab approves at the current Reserve. ETag and If-Match are the next step.
-- Extreme amounts (around 1e28) can overflow the Exposure sum and fail that endpoint.
-- After a Kafka broker restart, the outbox republished within about 2.5 seconds, but the consumers took about 45 seconds more to catch up. No events were lost. The cause is suspected (the consumer group rejoining under Kafka's default 45 s session timeout) but not confirmed, so the timeout was left unchanged; production would diagnose it and then tune it.
-- The outbox table only grows. Production would add a partial index on unsent rows and an archive job.
+| Limit | Detail | Production fix |
+|-------|--------|----------------|
+| UI amounts (D73) | JavaScript numbers: exact to about 15 significant digits. API, database and Claim History are exact | |
+| Topic creation | `claim-events` and `claim-events-dlq` are created in Development only; elsewhere they must exist | |
+| Dead letters (D90) | A message a consumer can't read, or whose event type it doesn't know, is copied to `claim-events-dlq` and the consumer moves on. Headers say which consumer sent it, why, and where it came from; each consumer sends its own copy. Until it is replayed by hand, Reporting's totals miss that event. A late replay can move Reporting's row back to an older status: check the Claim's current state first, or rebuild the row from its events in order | Automated replay (next) |
+| Stale screen (D80) | `xmin` catches simultaneous saves, not a stale screen: an old tab approves at the current Reserve | ETag and If-Match |
+| Extreme amounts (D82) | Around 1e28, the Exposure sum can overflow and fail | |
+| Broker restart (D88) | Outbox republished in about 2.5 s; consumers took about 45 s more. Nothing lost. Suspected, unconfirmed cause: the group rejoining under the default 45 s session timeout, so it stays unchanged | Diagnose, then tune |
+| Outbox growth (D83) | The table only grows | Partial index on unsent rows, archive job |
+| Claimant sees the Reserve (D65) | By design: one Claim shape for both roles | |
+
+Inspect the dead letters:
+
+```sh
+docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic claim-events-dlq --from-beginning --property print.headers=true
+```
 
 ## Troubleshooting
 
-- **The Dashboard shows Claims that don't exist.** Reporting has heard events for Claims that this database doesn't hold, for example from another copy of the API using the same Kafka, or from a database that was reset while Kafka kept its data. Reset the local stack with `docker compose down -v`, then start again from **Run it**. This wipes all Postgres and Kafka data.
-- **The API can't reach Postgres.** Check `docker compose ps` shows Postgres healthy on port 5433.
+| Symptom | Fix |
+|---------|-----|
+| Dashboard shows Claims that don't exist: events from another API on the same Kafka, or from before a database reset | `docker compose down -v`, then **Run it** again. Wipes all Postgres and Kafka data |
+| API can't reach Postgres | `docker compose ps` should show Postgres healthy on 5433 |
+| First run logs one EF Core `fail: ... An error occurred using the connection to database 'claims'` | Harmless, logged before the database is created |
+| npm warns `install-scripts ... not yet covered by allowScripts` | Harmless; the app builds and runs without them |
 
 ## What was left out
 
-- Real authentication (OIDC/JWT), a Manager role, and reassigning Claims between Officers.
-- Policy verification, coverage checks and policyholder lookup.
-- Attachments and file uploads.
-- Claimant withdrawal, reopening closed Claims, and timeouts on unanswered Info Requests.
-- Partial or negotiated settlements, payments, and currency conversion.
-- Real email delivery, and showing notifications in the UI.
-- Time-based measures, such as average time to settle.
-- Server push (SSE or SignalR); the UI polls.
-- Containerising the API and frontend, deployment, and CI.
-- Angular tests, and automated tests of the Kafka adapters.
-- A separate project per module, and splitting any module into its own service.
+| Area | Left out |
+|------|----------|
+| Identity | Real authentication (OIDC/JWT), Manager role, reassigning Claims |
+| Policy | Verification, coverage checks, policyholder lookup |
+| Documents | Attachments, file uploads |
+| Lifecycle | Claimant withdrawal, reopening, timeouts on unanswered Info Requests |
+| Money | Partial or negotiated settlements, payments, currency conversion |
+| Notifications | Real email delivery, notifications in the UI |
+| Reporting | Time-based measures, such as average time to settle |
+| Updates | Server push (SSE or SignalR); the UI polls |
+| Delivery | Containers, deployment, CI |
+| Tests | Angular tests, automated tests of the Kafka adapters |
+| Structure | A project per module; any service split |
 
 ## What's next
 
-1. **Split out Reporting first.** It already has its own tables and only hears events, so it can move to its own service and database without changing Claims.
-2. Real login (OIDC/JWT). Only the authentication scheme and `CurrentUser` change.
+1. **Split out Reporting first.** It has its own tables and only hears events, so it moves to its own service and database without touching Claims.
+2. Real login (OIDC/JWT): the API's authentication scheme and `CurrentUser` change, and so do the Angular role picker and identity interceptor.
 3. A Manager role, with reassignment of Claims.
 4. Server push (SSE) instead of polling.
 5. Policy lookup against the policy administration system.
 6. Containers, CI and deployment.
 
+## How it was built
+
+The Matt Pocock skills workflow, with Jay's extensions. Entry numbers point to [AI_JOURNAL.md](AI_JOURNAL.md).
+
+```mermaid
+flowchart LR
+    ask["/ask-matt"] --> setup["/setup-matt-pocock-skills"]
+    setup --> grill["/grill-with-docs"]
+    grill -.-|"uses"| dm["/domain-modeling<br/>glossary and ADRs"]
+    grill --> spec["/to-spec"]
+    spec --> tickets["/to-tickets"]
+    tickets --> way["/wayfinder<br/>Jay's choice, over the AI's advice"]
+    way --> impl["/implement per ticket<br/>/tdd + /code-review"]
+
+    subgraph ext["Jay's extensions"]
+        codex["Codex reviews"]
+        waves["Parallel waves<br/>in worktrees"]
+        council["Claude + Codex<br/>councils"]
+    end
+
+    impl -.-> codex
+    impl -.-> waves
+    impl -.-> council
+```
+
+Each skill's output fed the next; the extensions changed how tickets were reviewed, run and decided.
+
+| Skill | What it produced | Why it helped | Entry |
+|-------|------------------|---------------|-------|
+| `/ask-matt` | The workflow: grill, spec, tickets, implement per ticket | Shows how Jay directs agents; set vertical slices, backend first | #2, #3 |
+| `/setup-matt-pocock-skills` | `docs/agents/`, triage labels, one `GLOSSARY.md` and `docs/adr/` | Every later skill reads the same tracker and docs layout | #3 |
+| `/grill-with-docs` | 31 decisions, `GLOSSARY.md`, ADRs 0001–0006, `docs/decisions.md` | One decision at a time, each with what it was chosen over; caught the missing `ReserveSet` event (D32) | #4, #5 |
+| `/domain-modeling` | `GLOSSARY.md` and ADRs, kept up to date as decisions settled | `/grill-with-docs` already uses it, so it kept running throughout | #5 |
+| `/to-spec` | The spec: 64 user stories, REST contract, events, three test seams | Fixed the test seams; flagged five gaps for Jay to confirm | #6 |
+| `/to-tickets` | 12 tickets with blocking links | Backend slices first, then Angular, then README | #7 |
+| `/wayfinder` | Map #1, spec #2, tickets #3–#14 as GitHub sub-issues | **Jay's choice over the AI's advice:** one source of truth for the whole assignment | #8 |
+| `/implement` (`/tdd` + `/code-review`) | Each ticket test-first at the spec's seams, reviewed, committed | Reviews found real bugs, logged per ticket | #12–#16 |
+| Codex reviews | A Codex review beside every Claude review | A second model; it found bugs the Claude reviews missed, such as a redirect loop | #15, #20 |
+| Parallel waves | Three waves of builder agents, each in its own worktree and databases | Jay: to show he can direct several agents safely; waves follow the blocking links | #17, #18 |
+| Councils | Two Claude agents and Codex decide; two of three wins, dissent recorded | Jay: "more inputs from different models are better" | #19, #43 |
+| Lead orchestrates | Builder and fixer agents write code; the lead reviews, merges and journals | Keeps the lead on dispatch and records | #21 |
+
+`/implement-spec` and `/retro` were planned (#2) but replaced by the parallel waves and the councils. `/codebase-design` was only a reference pulled in by `/tdd` (#5).
+
+For the full picture, open [docs/overview.html](docs/overview.html) in a browser.
+
 ## Repo layout
 
 | Path | What |
 |------|------|
-| `AI_JOURNAL.md` | Log of how AI was directed, challenged and overridden during the build |
+| `AI_JOURNAL.md` | How AI was directed, challenged and overridden |
 | `GLOSSARY.md` | Domain terms |
-| `docs/agent-prompt.md` | The opening prompt given to the AI pair-programmer |
-| `docs/decisions.md`, `docs/adr/` | Decision log and architecture decision records |
+| `docs/agent-prompt.md` | The AI pair-programmer's opening prompt |
+| `docs/decisions.md`, `docs/adr/` | Decision log and ADRs |
+| `docs/overview.html` | Visual tour |
 | `docker-compose.yml` | Postgres and Kafka for local runs |
-| `src/Claims.Api` | The API: `Claims/`, `Notifications/`, `Reporting/` modules plus shared `Infrastructure/` |
+| `src/Claims.Api` | The API: `Claims/`, `Notifications/`, `Reporting/`, shared `Infrastructure/` |
 | `tests/Claims.Api.Tests` | Unit and integration tests |
 | `web/` | The Angular app |
