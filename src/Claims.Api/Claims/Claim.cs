@@ -29,6 +29,9 @@ public class Claim
     private readonly List<InfoRequest> _infoRequests = []; // in the order asked; at most one open
     public IReadOnlyList<InfoRequest> InfoRequests => _infoRequests;
 
+    // The one unanswered Info Request, if any. Only RequestInfo adds one, and only when none is open.
+    private InfoRequest? OpenInfoRequest => _infoRequests.SingleOrDefault(r => r.IsOpen);
+
     // Raised but not yet saved. AppDbContext moves them to the outbox when the Claim is saved.
     private readonly List<ClaimEvent> _events = [];
     public IReadOnlyList<ClaimEvent> Events => _events;
@@ -97,8 +100,9 @@ public class Claim
         EnsureAssignedTo(officerId);
         // Checked before the status rule so the Officer is told which rule stopped them. An open Info Request
         // always means Info Requested, so this is also the status rule for that one status.
-        if (_infoRequests.Any(r => r.IsOpen))
+        if (OpenInfoRequest is not null)
             throw new ClaimConflictException("An Info Request is already open. Wait for the Claimant's answer before asking again.");
+        // Both: the rules name the status, the answer needs the open request; they move together, so this guards that.
         if (Status != ClaimStatus.UnderReview)
             throw new ClaimConflictException("Info can only be requested while the Claim is Under Review.");
         if (string.IsNullOrWhiteSpace(question))
@@ -116,7 +120,7 @@ public class Claim
     public void ProvideInfo(string answer, DateTimeOffset now)
     {
         // An open Info Request exists exactly when the Claim is Info Requested, so this is also the status rule.
-        var open = _infoRequests.SingleOrDefault(r => r.IsOpen)
+        var open = OpenInfoRequest
             ?? throw new ClaimConflictException("There is no open Info Request to answer.");
         if (string.IsNullOrWhiteSpace(answer))
             throw new InvalidClaimException("An answer can't be empty.");
