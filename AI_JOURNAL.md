@@ -834,3 +834,9 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **My answer, in my own words (14:45):** "it gets a unique ID or identifiers with checks saying that it is already received and whatever coming in is a duplicate"
 - **AI's addition for the panel:** each event carries a unique event id. Each reader saves the ids it has handled (`processed_events`) in the same transaction as its own change, so a duplicate is recognised and skipped.
 - **Journal correction:** entry #19 calls its guessed time the "third today". It was the fourth: entry #4 (11:03 for 11:02), entry #17 (13:03 for 13:00, and 13:04 for 13:03), and entry #19 (13:08 for 13:07). A fifth came later, in entry #47 (14:39 for 14:38). The read-only agent gathering facts for the retro found this. Entry #19 is left as written and corrected here.
+
+## Entry #50 (Thu 29 Oct 14:47): rehearsal, part 3 — D65, the Claimant sees the Reserve
+
+- **Question:** if the panel asks why the customer can see the Reserve, isn't that internal?
+- **My answer, in my own words (14:47):** "i would defend it as transparency or maybe to keep both parties align and provide trust with the client. if i am against it its because i dont want to under or over promise my clients and give them false hope which again may lose trust and the client"
+- **AI's note:** this is a two-sided trade-off, and the answer covers both sides. Transparency builds trust; showing an estimate can read as a promise. One line to add for the panel: in production I'd hide it behind a role or show it as an estimate, and changing that touches one response field (D65).
