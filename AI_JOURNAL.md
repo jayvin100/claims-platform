@@ -915,3 +915,18 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Found by the fixer:** `ReportingClaim`'s no-rule case retried forever; it now goes to the dead-letter topic. A failed test run could leave the shared poison event id in the test database; the setup now deletes it first.
 - **Fixer's live recheck:** the missing-field message and the null-header message both landed in `claim-events-dlq` with the dlq headers. A normal Claim then sent its email and moved the Exposure count. It stopped the API by its PID.
 - **/simplify requested:** "this whole project once the whole team of agents are done reviewing/auditing and fixing any issues. this may be not needed but we will see when the simplify agent team reports back". It runs after the full review team's fixes merge. The findings come to me before anything changes.
+
+## Entry #56 (Thu 29 Oct 15:09): visual README merged
+
+- **Merged:** `6b390fd`, rebased onto D90 and fast-forwarded; pushed. README only.
+- **What it contains:** 7 Mermaid diagrams (architecture, Claim states, sequence, REST vs Kafka, response order, consumer decisions, how it was built), a Screens table, and the skills section. All 7 render with mermaid-cli.
+- **Docs review fixes applied (Claude and Codex, entry #53):**
+  - the consumer tree and Known limits now follow D90, not D74/D79;
+  - the response tree has pick-up answering 409, not 403, and approve-without-Reserve answering 409, both checked against `Claim.cs`;
+  - "every screen polls" now names the five screens that poll;
+  - the real-login line says the Angular role picker and interceptor change too;
+  - the Assigned Officer line lists the actions it guards;
+  - `/domain-modeling` is in the flowchart;
+  - the dead-letter topic is in the architecture and REST vs Kafka diagrams.
+- **Bug the README agent caught in my brief:** I gave the consumer tree as "readable → already processed → known type". After the D90 fixes, `ReadEvent` checks the type and the JSON before the processed check, because the event id comes from that JSON. The agent followed the code. I checked it (`ClaimEventConsumer.cs` lines 183 and 219), and the overview agent was told to use the same order.
+- **No separate review agent for the README fixes:** the full review team runs on the final main next, and its docs reviewers (Claude and Codex) cover the README.
