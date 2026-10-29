@@ -1,0 +1,18 @@
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { apiBaseUrl } from '../api';
+import { CurrentUser } from './current-user';
+
+/**
+ * Adds the chosen Demo User's id and role to every API call (ADR-0006). This is the only place
+ * the headers are set, so services never deal with identity. The API decides what the user
+ * may see and do; the headers only say who is asking.
+ */
+export const identityInterceptor: HttpInterceptorFn = (req, next) => {
+  const user = inject(CurrentUser).user();
+  // Only our API gets the headers; before a user is chosen there is nothing to add.
+  if (!user || !req.url.startsWith(apiBaseUrl)) {
+    return next(req);
+  }
+  return next(req.clone({ setHeaders: { 'X-User-Id': user.id, 'X-Role': user.role } }));
+};
