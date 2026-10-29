@@ -123,7 +123,7 @@ D47–D53 are the AI's implementation calls, made without asking because they do
 
 ## Ticket 03: Officer Queue and pick-up (#5)
 
-D54–D59 are the AI's implementation calls, made without asking because they don't change an agreed decision; they are listed for Jay to review and override (AI_JOURNAL entry #14).
+D54–D59 are the AI's implementation calls, made without asking because they don't change an agreed decision; Jay reviewed them and accepted all six (AI_JOURNAL entry #14).
 
 | # | Decision | Chosen over | Why |
 |---|---|---|---|

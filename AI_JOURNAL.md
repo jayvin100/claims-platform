@@ -205,5 +205,5 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
     - Some test setup (the submit body) repeats across test files.
   - **Known gap:** no test yet shows the Queue leaving out my Settled or Rejected Claims, because no endpoint reaches those statuses. It belongs in #7.
 - **Result:** 59 tests pass (12 identity, 19 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up), with 0 build warnings. Build time at commit: 1h51m of the 5h cap.
-- **Questions for me:** _(pending Jay)_ do I want to override any of D54–D59?
+- **My decision (12:39):** accepted D54–D59 as proposed, with no overrides. My reason: I agree with the AI's decisions; they make sense.
 
