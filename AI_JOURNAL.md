@@ -20,7 +20,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:58 | 13:00 | Plan parallel waves for the remaining tickets; per-worktree databases; fix a test start-up race |
 | 13:00 | 13:23 | Wave 1 in parallel: #7, #8, #10 built in worktrees; reviews by two Claude agents plus Codex; #10 and #7 merged; wave-1 council |
 | 13:23 | 13:48 | Waves 2 and 3: #8, #9, #11, #12, #13 merged with reviews and fixers; wave-2 council; #14 README and fresh-clone check |
-| 13:48 | | 3h warning to Jay; final review and wrap-up |
+| 13:48 | 13:59 | 3h warning to Jay; final whole-repo review, final council, fixes, live check, worktree cleanup |
 
 ---
 
@@ -630,3 +630,11 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Stack:** `docker compose up -d --wait` recreated Kafka on the new volume, and both containers are healthy. This dropped the shared dev topic's old events once, as expected.
   - **Live Kafka check:** a fresh database on port 5299 took an HK Claim through submit, pick up, Reserve 1234.5, approve and settle. Exposure for HK showed 1 open Claim and HKD 1234.5 before the settle, and 0 and 0 four seconds after it. The console printed 4 simulated emails (submitted, picked up, approved, settled; ReserveSet is skipped by design). The only "fail" line was the harmless first-run one the README already explains.
 - **Build time:** 3h11m of the 5h cap.
+
+## Entry #36 (Thu 29 Oct 13:59): all tickets done; cleanup
+
+- **Done:** every ticket, #3 to #14, is merged and closed. Main has 188 passing tests and a clean `ng build`. The fresh-clone check passed (entry #33), and the live Kafka check after the final fixes passed (entry #35).
+- **Cleanup:** removed the nine agent worktrees and deleted their branches. The lead first checked that every branch was merged into main and had no uncommitted changes. `--force` was needed only because of untracked build output such as `node_modules`.
+- **Left on the local machine:** the per-agent databases (`claims_t*`, `claims_test_*`, `claims_fresh`, `claims_lead_e2e`) in the Compose Postgres. They are harmless, and `docker compose down -v` removes them.
+- **Build time:** 3h11m of the 5h cap.
+
