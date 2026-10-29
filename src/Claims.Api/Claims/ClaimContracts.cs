@@ -12,6 +12,12 @@ public record SubmitClaimRequest(
     [Required] DateOnly? IncidentDate,
     [Required, MaxLength(2000)] string Description);
 
+/// <summary>The Reserve amount only: its currency is the Claim's, from the Market (D7).</summary>
+public record SetReserveRequest([Required] decimal? Amount);
+
+/// <summary>The reason is shown to the Claimant on their timeline.</summary>
+public record RejectClaimRequest([Required, MaxLength(1000)] string Reason);
+
 /// <summary>One row of a Claimant's My Claims list.</summary>
 public record ClaimSummaryResponse(Guid Id, string ClaimNumber, Market Market, ClaimType ClaimType, ClaimStatus Status, DateTimeOffset CreatedAt);
 
@@ -20,11 +26,12 @@ public record ClaimHistoryResponse(ClaimStatus Status, string Description, DateT
 public record ClaimResponse(
     Guid Id, string ClaimNumber, string PolicyNumber, Market Market, string Currency, ClaimType ClaimType,
     DateOnly IncidentDate, string Description, ClaimStatus Status, Guid ClaimantId, Guid? AssignedOfficerId,
-    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, List<ClaimHistoryResponse> History)
+    decimal? ReserveAmount, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, List<ClaimHistoryResponse> History)
 {
     public static ClaimResponse From(Claim claim) => new(
         claim.Id, claim.ClaimNumber, claim.PolicyNumber, claim.Market, claim.Currency, claim.ClaimType,
-        claim.IncidentDate, claim.Description, claim.Status, claim.ClaimantId, claim.AssignedOfficerId, claim.CreatedAt, claim.UpdatedAt,
+        claim.IncidentDate, claim.Description, claim.Status, claim.ClaimantId, claim.AssignedOfficerId,
+        claim.ReserveAmount, claim.CreatedAt, claim.UpdatedAt,
         claim.History.OrderBy(h => h.Id).Select(h => new ClaimHistoryResponse(h.Status, h.Description, h.OccurredAt)).ToList());
 }
 

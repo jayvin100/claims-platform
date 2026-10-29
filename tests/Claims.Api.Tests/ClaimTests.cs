@@ -1,3 +1,4 @@
+using System.Globalization;
 using Claims.Api.Claims;
 
 namespace Claims.Api.Tests;
@@ -140,25 +141,288 @@ public class ClaimTests
     public void Pick_up_is_refused_from_every_status_except_Submitted(ClaimStatus status)
     {
         var claim = InStatus(status);
-        claim.ClearEvents();
+        var historyCount = claim.History.Count;
 
-        var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(OfficerId, Later));
+        var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(Guid.NewGuid(), Later));
 
         Assert.Equal("Only a Submitted Claim can be picked up.", error.Message);
         Assert.Equal(status, claim.Status);
-        Assert.Null(claim.AssignedOfficerId);
-        Assert.Single(claim.History);
+        Assert.Equal(OfficerId, claim.AssignedOfficerId);
+        Assert.Equal(historyCount, claim.History.Count);
         Assert.Empty(claim.Events);
     }
 
-    // The Claim's methods to reach some statuses (approve, settle...) come in later tickets, so this sets
-    // the status the way EF Core does when it loads a row: through the private setter.
+    [Fact]
+    public void Assigned_Officer_sets_a_Reserve_on_a_Claim_Under_Review_in_the_Markets_currency()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+
+        claim.SetReserve(OfficerId, 1500.50m, Later);
+
+        Assert.Equal(ClaimStatus.UnderReview, claim.Status);
+        Assert.Equal(1500.50m, claim.ReserveAmount);
+        Assert.Equal(Later, claim.UpdatedAt);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.UnderReview, "Reserve set to SGD 1,500.50", Later), (entry.Status, entry.Description, entry.OccurredAt));
+        var reserveSet = Assert.IsType<ReserveSet>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, reserveSet.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, Later), (reserveSet.ClaimId, reserveSet.ClaimNumber, reserveSet.Market, reserveSet.OccurredAt));
+        Assert.Equal((1500.50m, "SGD"), (reserveSet.Amount, reserveSet.Currency));
+    }
+
+    [Fact]
+    public void Assigned_Officer_revises_the_Reserve_while_the_Claim_is_Under_Review()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+        claim.SetReserve(OfficerId, 1000m, Later);
+
+        claim.SetReserve(OfficerId, 2500m, Later.AddMinutes(5));
+
+        Assert.Equal(2500m, claim.ReserveAmount);
+        Assert.Equal("Reserve set to SGD 2,500.00", claim.History[^1].Description);
+        Assert.Equal([1000m, 2500m], claim.Events.Cast<ReserveSet>().Select(e => e.Amount));
+    }
+
+    [Fact]
+    public void The_Claim_History_shows_the_Reserve_exactly_as_set_never_rounded()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+
+        claim.SetReserve(OfficerId, 1000.005m, Later);
+
+        Assert.Equal("Reserve set to SGD 1,000.005", claim.History[^1].Description);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-0.01")]
+    [InlineData("-500")]
+    public void A_Reserve_of_zero_or_less_is_refused(string amount)
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+        var historyCount = claim.History.Count;
+
+        var error = Assert.Throws<InvalidClaimException>(() => claim.SetReserve(OfficerId, decimal.Parse(amount, CultureInfo.InvariantCulture), Later));
+
+        Assert.Equal("The Reserve must be greater than zero.", error.Message);
+        Assert.Null(claim.ReserveAmount);
+        Assert.Equal(historyCount, claim.History.Count);
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.Submitted)]
+    [InlineData(ClaimStatus.InfoRequested)]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Setting_a_Reserve_is_refused_from_every_status_except_Under_Review(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.SetReserve(OfficerId, 1000m, Later));
+
+        Assert.Equal("The Reserve can only be set while the Claim is Under Review.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Fact]
+    public void Assigned_Officer_approves_a_Claim_Under_Review_at_its_Reserve()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+        claim.SetReserve(OfficerId, 1500m, Later);
+        claim.ClearEvents();
+
+        claim.Approve(OfficerId, Later.AddMinutes(5));
+
+        Assert.Equal(ClaimStatus.Approved, claim.Status);
+        Assert.Equal(1500m, claim.ReserveAmount);
+        Assert.Equal(Later.AddMinutes(5), claim.UpdatedAt);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.Approved, "Claim approved", Later.AddMinutes(5)), (entry.Status, entry.Description, entry.OccurredAt));
+        var approved = Assert.IsType<ClaimApproved>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, approved.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, Later.AddMinutes(5)), (approved.ClaimId, approved.ClaimNumber, approved.Market, approved.OccurredAt));
+        Assert.Equal(ClaimantId, approved.ClaimantId);
+    }
+
+    [Fact]
+    public void Approving_a_Claim_with_no_Reserve_is_refused()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.Approve(OfficerId, Later));
+
+        Assert.Equal("A Claim needs a Reserve before it can be approved.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.Submitted)]
+    [InlineData(ClaimStatus.InfoRequested)]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Approving_is_refused_from_every_status_except_Under_Review(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.Approve(OfficerId, Later));
+
+        Assert.Equal("Only a Claim Under Review can be approved.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Fact]
+    public void Assigned_Officer_rejects_a_Claim_Under_Review_with_a_reason_the_Claimant_can_see()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+
+        claim.Reject(OfficerId, "Policy had lapsed", Later);
+
+        Assert.Equal(ClaimStatus.Rejected, claim.Status);
+        Assert.Equal(Later, claim.UpdatedAt);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.Rejected, "Claim rejected: Policy had lapsed", Later), (entry.Status, entry.Description, entry.OccurredAt));
+        var rejected = Assert.IsType<ClaimRejected>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, rejected.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, Later), (rejected.ClaimId, rejected.ClaimNumber, rejected.Market, rejected.OccurredAt));
+        Assert.Equal((ClaimantId, "Policy had lapsed"), (rejected.ClaimantId, rejected.Reason));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Rejecting_without_a_reason_is_refused(string reason)
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<InvalidClaimException>(() => claim.Reject(OfficerId, reason, Later));
+
+        Assert.Equal("A rejection needs a reason.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.Submitted)]
+    [InlineData(ClaimStatus.InfoRequested)]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Rejecting_is_refused_from_every_status_except_Under_Review(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.Reject(OfficerId, "Policy had lapsed", Later));
+
+        Assert.Equal("Only a Claim Under Review can be rejected.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Fact]
+    public void Assigned_Officer_settles_an_Approved_Claim()
+    {
+        var claim = InStatus(ClaimStatus.Approved);
+
+        claim.Settle(OfficerId, Later.AddDays(1));
+
+        Assert.Equal(ClaimStatus.Settled, claim.Status);
+        Assert.Equal(Later.AddDays(1), claim.UpdatedAt);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.Settled, "Claim settled", Later.AddDays(1)), (entry.Status, entry.Description, entry.OccurredAt));
+        var settled = Assert.IsType<ClaimSettled>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, settled.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, Later.AddDays(1)), (settled.ClaimId, settled.ClaimNumber, settled.Market, settled.OccurredAt));
+        Assert.Equal(ClaimantId, settled.ClaimantId);
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.Submitted)]
+    [InlineData(ClaimStatus.UnderReview)]
+    [InlineData(ClaimStatus.InfoRequested)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Settling_is_refused_from_every_status_except_Approved(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.Settle(OfficerId, Later));
+
+        Assert.Equal("Only an Approved Claim can be settled.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData("set Reserve", ClaimStatus.UnderReview)]
+    [InlineData("approve", ClaimStatus.UnderReview)]
+    [InlineData("reject", ClaimStatus.UnderReview)]
+    [InlineData("settle", ClaimStatus.Approved)]
+    public void An_Officer_who_is_not_the_Assigned_Officer_is_refused_every_action(string action, ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        if (status == ClaimStatus.UnderReview)
+            claim.SetReserve(OfficerId, 1500m, Later); // so only the Officer rule can stop approve
+        claim.ClearEvents();
+        var before = Snapshot(claim);
+        var otherOfficerId = Guid.NewGuid();
+
+        Action act = action switch
+        {
+            "set Reserve" => () => claim.SetReserve(otherOfficerId, 1000m, Later),
+            "approve" => () => claim.Approve(otherOfficerId, Later),
+            "reject" => () => claim.Reject(otherOfficerId, "Policy had lapsed", Later),
+            _ => () => claim.Settle(otherOfficerId, Later),
+        };
+        var error = Assert.Throws<NotAssignedOfficerException>(act);
+
+        Assert.Equal("Only the Assigned Officer can act on this Claim.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    // Reaches a status through the Claim's own methods, with OfficerId as the Assigned Officer and no
+    // events left over. Info Requested has no method yet (#7), so it is set the way EF Core does when it
+    // loads a row: through the private setter (D58).
     private static Claim InStatus(ClaimStatus status)
     {
         var claim = Submit(Market.SG, new DateOnly(2026, 10, 28));
-        typeof(Claim).GetProperty(nameof(Claim.Status))!.SetValue(claim, status);
+        if (status != ClaimStatus.Submitted)
+            claim.PickUp(OfficerId, Later);
+
+        switch (status)
+        {
+            case ClaimStatus.InfoRequested:
+                typeof(Claim).GetProperty(nameof(Claim.Status))!.SetValue(claim, status);
+                break;
+            case ClaimStatus.Approved or ClaimStatus.Settled:
+                claim.SetReserve(OfficerId, 1500m, Later);
+                claim.Approve(OfficerId, Later);
+                if (status == ClaimStatus.Settled)
+                    claim.Settle(OfficerId, Later);
+                break;
+            case ClaimStatus.Rejected:
+                claim.Reject(OfficerId, "Policy had lapsed", Later);
+                break;
+        }
+        claim.ClearEvents();
         return claim;
     }
+
+    // What a refused action must leave as it was. It must also raise no event.
+    private static (ClaimStatus, Guid?, decimal?, int) Snapshot(Claim claim) =>
+        (claim.Status, claim.AssignedOfficerId, claim.ReserveAmount, claim.History.Count);
 
     private static Claim Submit(Market market, DateOnly incidentDate, long sequence = 1) =>
         Claim.Submit(ClaimantId, "POL-1", market, ClaimType.Motor, incidentDate, "Rear-ended at a junction", sequence, Now);

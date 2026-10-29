@@ -16,3 +16,23 @@ public record ClaimPickedUp(
     Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
     Guid AssignedOfficerId, Guid ClaimantId)
     : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
+public record ReserveSet(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
+    decimal Amount, string Currency)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
+public record ClaimApproved(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
+    Guid ClaimantId)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
+public record ClaimRejected(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
+    Guid ClaimantId, string Reason)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
+public record ClaimSettled(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
+    Guid ClaimantId)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);

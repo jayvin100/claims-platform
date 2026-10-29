@@ -7,6 +7,7 @@ Take-home assessment: a claims platform (Angular + ASP.NET Core + Kafka). Jay mu
 Read "How we work (strict)" in [docs/agent-prompt.md](docs/agent-prompt.md) before starting any task. It applies to every session, including after `/clear`. The rules agents most often miss:
 
 - Update [AI_JOURNAL.md](AI_JOURNAL.md) at every commit. Take times from `date`, never guess them. Never invent Jay's reasons; ask him.
+- In each ticket's journal entry, list every bug found (by a test, a review, or the AI itself) and how it was fixed, or why it was left (Jay's rule, Thu 29 Oct 12:57).
 - Push to origin after each commit.
 - Stop and ask before adding any NuGet or npm dependency, or before changing an agreed decision.
 - Warn Jay at 3h and 4h of build time. The session started at Thu 29 Oct 10:48 +08 (see the time log in the journal).

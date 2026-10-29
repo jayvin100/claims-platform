@@ -71,6 +71,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             claim.Property(c => c.Currency).HasMaxLength(3);
             claim.Property(c => c.ClaimType).HasConversion<string>().HasMaxLength(20);
             claim.Property(c => c.Description).HasMaxLength(2000);
+            // No precision set: Postgres "numeric" keeps the amount exactly as given, never rounded on save.
+            claim.Property(c => c.ReserveAmount);
             claim.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
 
             // Optimistic concurrency (D13): Npgsql maps a uint row version to Postgres's own xmin column,

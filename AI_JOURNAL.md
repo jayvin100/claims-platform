@@ -16,6 +16,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:20 | 12:30 | Ticket 02 (#4): Claim entity, submit/list/detail endpoints, outbox table, tests, code review |
 | 12:32 | 12:39 | Ticket 03 (#5): Queue, pick-up, `xmin` concurrency, 409 mapping, tests, code review |
 | 12:39 | 12:44 | Second review of #5 by two Claude agents plus Codex; Codex review made a standing rule |
+| 12:48 | 12:58 | Ticket 04 (#6): Reserve, approve, reject, settle; tests; review by two Claude agents plus Codex |
 
 ---
 
@@ -232,4 +233,36 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **AI's view on Codex:** a clean result after a 71-second static review is weaker evidence than the Claude agents' review, which included a test run. It's still useful as an independent read that isn't anchored on Claude's.
 - **Result:** 59 tests pass, with 0 build warnings. Build time at commit: 1h56m of the 5h cap.
 - **Jay's correction (12:46):** run Codex as `codex --model gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" "<prompt>"`. The AI pointed out that this form opens Codex's interactive UI, which its agents can't drive without a terminal. **I chose** to keep my flags but run them through `codex exec`, with a read-only sandbox and the review saved to a file. `docs/agents/codex-review.md` is updated.
+
+## Entry #16 (Thu 29 Oct 12:58): ticket 04, Officer assesses and decides (#6, `/implement`)
+
+- **Asked:** `/implement 6`: test-first, review (Claude agents plus Codex), commit and push. During the work I added a rule: log every bug found and how it was fixed, for every ticket from now on (now in AGENTS.md).
+- **AI built, test-first at the agreed seams:**
+  - **Seam 2 (the Claim, no database), 36 new tests:**
+    - Set Reserve: sets it in the Market's currency; revises it; zero or less refused (400); refused from every status except Under Review (409); the timeline shows the amount unrounded.
+    - Approve: moves to Approved at the Reserve; refused with no Reserve; refused from every status except Under Review.
+    - Reject: moves to Rejected with the reason on the timeline; a blank reason refused; refused from every status except Under Review.
+    - Settle: moves an Approved Claim to Settled; refused from every other status.
+    - Another Officer is refused every action (403).
+    - Every test also checks the Claim History entry and the event (ReserveSet with amount and currency; ClaimApproved, ClaimSettled with Claimant id; ClaimRejected with Claimant id and reason), and that a refused action changes nothing.
+  - **Seam 1 (HTTP), 25 tests:** one happy path from submit to settle (each step on the timeline and in the outbox); reject with the reason seen by the Claimant; another Officer gets 403 on all four actions; a Claimant gets 403; approve without a Reserve is 409; a Settled Claim allows nothing further (409 naming each rule); settle before approval is 409; a bad Reserve or a blank reason is 400; an unknown Claim is 404.
+  - **Follow-ups from #5, both done:** the Queue leaves out my Settled and Rejected Claims (HTTP test); the unit tests now reach each status through real transitions. Only Info Requested still uses the private setter, until #7 adds its method.
+- **AI's implementation calls, for me to review** (D60–D65): who is checked first (403, then 409, then 400); the Reserve stored unrounded; the rejection reason kept in the timeline and event, not a column; one `Record` helper on the Claim and one `ActOnClaim` helper in the controller; decision events carry only the Claimant id; **the Claimant can see the Reserve** (flagged, because real insurers often keep reserves internal).
+- **TDD note:** every Seam 2 slice was red first (a compile error or a failing assertion). The 25 HTTP tests passed on their first run, after the happy path, because the Claim's rules were already in place. To check they bite, the AI removed the 403 mapping as a test: 4 of them failed, then it was restored.
+- **Bugs found and fixed:**
+  - **AI test-setup bug:** the first Reserve test failed because the `InStatus` helper left the ClaimSubmitted event behind. Fixed by switching `InStatus` to real transitions that clear the events at the end (the #5 follow-up).
+  - **Codex, hard issue:** the timeline rounded the Reserve to two decimals, so `0.001` showed as `SGD 0.00` while the database and the event kept `0.001`. A regression test went red first; the timeline now shows the amount unrounded, with at least two decimals (D61).
+  - **Claude standards review, hard issue:** `NotAssignedOfficerException` cited D23, which doesn't cover the other-Officer 403. It now cites ADR-0006 and spec #2.
+- **Code review: three reviews of the same diff, in parallel:**
+  - **Codex (GPT 6.1 Sol, high, fast; 62 seconds, static only):** no spec findings; one hard issue (the rounding above, fixed).
+  - **Claude spec review:** all acceptance criteria and both #5 follow-ups met; 119/119 tests pass. It noted two small additions (the 1000-character reason cap; the shared controller helper) and asked for D60+ to be logged; both are done.
+  - **Claude standards review:** one hard issue (the D23 citation, fixed). **Also fixed:** the Reserve format now has a comment; `RejectClaimRequest` got its summary; a test name now covers the "not a number" case; the vague `Change` helper is now `ActOnClaim`; the five repeated "set time, add history, add event" lines are now one `Record` method.
+  - **Left as is:**
+    - Test DTOs and the submit helper are copied across three HTTP test files; each file names only the fields it checks.
+    - The other-Officer unit test picks the action with a string switch; four separate tests would repeat the same setup.
+    - `(amount, currency)` isn't its own Money type; the currency always comes from the Market (D7).
+    - `claim.Property(c => c.ReserveAmount)` changes nothing; it is there to carry the "no precision" comment.
+    - Decision events don't carry the Assigned Officer (D64).
+- **Result:** 120 tests pass (12 identity, 55 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up, 25 assess/decide), with 0 build warnings. Build time at commit: 2h10m of the 5h cap.
+- **Questions for me:** _(pending Jay)_ do I accept D60–D65, in particular D65 (Claimants see the Reserve)?
 

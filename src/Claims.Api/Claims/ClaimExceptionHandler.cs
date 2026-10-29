@@ -16,6 +16,7 @@ public class ClaimExceptionHandler(IProblemDetailsService problemDetails) : IExc
         {
             InvalidClaimException => (StatusCodes.Status400BadRequest, "The Claim is not valid.", exception.Message),
             ClaimConflictException => (StatusCodes.Status409Conflict, "The Claim's status doesn't allow this.", exception.Message),
+            NotAssignedOfficerException => (StatusCodes.Status403Forbidden, "This Claim is held by another Officer.", exception.Message),
             // The Claim's xmin no longer matched on save: another request changed it first (D13).
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "The Claim was changed at the same time.",
                 "Someone else changed this Claim a moment ago. Reload it and try again."),

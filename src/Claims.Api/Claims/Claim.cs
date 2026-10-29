@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Claims.Api.Claims;
 
 /// <summary>
@@ -17,6 +19,7 @@ public class Claim
     public ClaimStatus Status { get; private set; }
     public Guid ClaimantId { get; private set; }
     public Guid? AssignedOfficerId { get; private set; } // empty until an Officer picks the Claim up (D11)
+    public decimal? ReserveAmount { get; private set; } // empty until set; always in the Claim's Currency
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -53,8 +56,7 @@ public class Claim
             CreatedAt = now,
             UpdatedAt = now,
         };
-        claim._history.Add(new ClaimHistoryEntry(ClaimStatus.Submitted, "Claim submitted", now));
-        claim._events.Add(new ClaimSubmitted(
+        claim.Record("Claim submitted", new ClaimSubmitted(
             Guid.NewGuid(), claim.Id, claim.ClaimNumber, market, now, claimantId, claim.Currency));
         return claim;
     }
@@ -67,8 +69,76 @@ public class Claim
 
         Status = ClaimStatus.UnderReview;
         AssignedOfficerId = officerId;
-        UpdatedAt = now;
-        _history.Add(new ClaimHistoryEntry(Status, "Claim picked up for review", now));
-        _events.Add(new ClaimPickedUp(Guid.NewGuid(), Id, ClaimNumber, Market, now, officerId, ClaimantId));
+        Record("Claim picked up for review", new ClaimPickedUp(Guid.NewGuid(), Id, ClaimNumber, Market, now, officerId, ClaimantId));
+    }
+
+    /// <summary>The Assigned Officer sets or revises the Reserve while the Claim is Under Review.</summary>
+    public void SetReserve(Guid officerId, decimal amount, DateTimeOffset now)
+    {
+        EnsureAssignedTo(officerId);
+        if (Status != ClaimStatus.UnderReview)
+            throw new ClaimConflictException("The Reserve can only be set while the Claim is Under Review.");
+        if (amount <= 0)
+            throw new InvalidClaimException("The Reserve must be greater than zero.");
+
+        ReserveAmount = amount;
+        // Thousands separators and at least two decimals, but never rounded: the timeline shows exactly what was saved.
+        // Invariant culture, so the text doesn't depend on the server's locale.
+        var shown = amount.ToString("#,0.00##########", CultureInfo.InvariantCulture);
+        Record($"Reserve set to {Currency} {shown}", new ReserveSet(Guid.NewGuid(), Id, ClaimNumber, Market, now, amount, Currency));
+    }
+
+    /// <summary>The Assigned Officer accepts the Claim at its current Reserve.</summary>
+    public void Approve(Guid officerId, DateTimeOffset now)
+    {
+        EnsureAssignedTo(officerId);
+        if (Status != ClaimStatus.UnderReview)
+            throw new ClaimConflictException("Only a Claim Under Review can be approved.");
+        if (ReserveAmount is null)
+            throw new ClaimConflictException("A Claim needs a Reserve before it can be approved.");
+
+        Status = ClaimStatus.Approved;
+        Record("Claim approved", new ClaimApproved(Guid.NewGuid(), Id, ClaimNumber, Market, now, ClaimantId));
+    }
+
+    /// <summary>The Assigned Officer declines the Claim. The reason goes on the Claimant's timeline.</summary>
+    public void Reject(Guid officerId, string reason, DateTimeOffset now)
+    {
+        EnsureAssignedTo(officerId);
+        if (Status != ClaimStatus.UnderReview)
+            throw new ClaimConflictException("Only a Claim Under Review can be rejected.");
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new InvalidClaimException("A rejection needs a reason.");
+
+        Status = ClaimStatus.Rejected;
+        Record($"Claim rejected: {reason}", new ClaimRejected(Guid.NewGuid(), Id, ClaimNumber, Market, now, ClaimantId, reason));
+    }
+
+    /// <summary>The Assigned Officer records that an Approved Claim's Reserve has been paid. Settled is final.</summary>
+    public void Settle(Guid officerId, DateTimeOffset now)
+    {
+        EnsureAssignedTo(officerId);
+        if (Status != ClaimStatus.Approved)
+            throw new ClaimConflictException("Only an Approved Claim can be settled.");
+
+        Status = ClaimStatus.Settled;
+        Record("Claim settled", new ClaimSettled(Guid.NewGuid(), Id, ClaimNumber, Market, now, ClaimantId));
+    }
+
+    // Every action ends here, so each one records exactly one Claim History entry (with the new status)
+    // and raises exactly one event, both at the event's time.
+    private void Record(string description, ClaimEvent @event)
+    {
+        UpdatedAt = @event.OccurredAt;
+        _history.Add(new ClaimHistoryEntry(Status, description, @event.OccurredAt));
+        _events.Add(@event);
+    }
+
+    // Checked before the status rules, so another Officer gets 403 whatever state the Claim is in (D11).
+    // A Submitted Claim has no Assigned Officer yet, so its status rule answers instead.
+    private void EnsureAssignedTo(Guid officerId)
+    {
+        if (AssignedOfficerId is not null && AssignedOfficerId != officerId)
+            throw new NotAssignedOfficerException();
     }
 }

@@ -60,14 +60,61 @@ public class ClaimsController(AppDbContext db, CurrentUser currentUser, TimeProv
     [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<ClaimResponse>> PickUp(Guid id)
+    // Two Officers at once: the later save fails its xmin check and ClaimExceptionHandler answers 409.
+    public Task<ActionResult<ClaimResponse>> PickUp(Guid id) =>
+        ActOnClaim(id, claim => claim.PickUp(currentUser.Id, clock.GetUtcNow()));
+
+    [HttpPut("{id:guid}/reserve")]
+    [Authorize(Roles = nameof(UserRole.Officer))]
+    [EndpointSummary("Assigned Officer only: sets or revises the Reserve while the Claim is Under Review")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public Task<ActionResult<ClaimResponse>> SetReserve(Guid id, SetReserveRequest request) =>
+        ActOnClaim(id, claim => claim.SetReserve(currentUser.Id, request.Amount!.Value, clock.GetUtcNow()));
+
+    [HttpPost("{id:guid}/approve")]
+    [Authorize(Roles = nameof(UserRole.Officer))]
+    [EndpointSummary("Assigned Officer only: approves a Claim Under Review at its current Reserve")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public Task<ActionResult<ClaimResponse>> Approve(Guid id) =>
+        ActOnClaim(id, claim => claim.Approve(currentUser.Id, clock.GetUtcNow()));
+
+    [HttpPost("{id:guid}/reject")]
+    [Authorize(Roles = nameof(UserRole.Officer))]
+    [EndpointSummary("Assigned Officer only: rejects a Claim Under Review, with a reason the Claimant sees")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public Task<ActionResult<ClaimResponse>> Reject(Guid id, RejectClaimRequest request) =>
+        ActOnClaim(id, claim => claim.Reject(currentUser.Id, request.Reason, clock.GetUtcNow()));
+
+    [HttpPost("{id:guid}/settle")]
+    [Authorize(Roles = nameof(UserRole.Officer))]
+    [EndpointSummary("Assigned Officer only: settles an Approved Claim")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public Task<ActionResult<ClaimResponse>> Settle(Guid id) =>
+        ActOnClaim(id, claim => claim.Settle(currentUser.Id, clock.GetUtcNow()));
+
+    // Every Officer action: load the Claim, let it apply its own rule, save, and return the updated Claim.
+    // A broken rule throws, and ClaimExceptionHandler turns it into 400, 403 or 409.
+    private async Task<ActionResult<ClaimResponse>> ActOnClaim(Guid id, Action<Claim> action)
     {
         var claim = await db.Claims.Include(c => c.History).SingleOrDefaultAsync(c => c.Id == id);
         if (claim is null)
             return NotFound();
 
-        // Two Officers at once: the later save fails its xmin check and ClaimExceptionHandler answers 409.
-        claim.PickUp(currentUser.Id, clock.GetUtcNow());
+        action(claim);
         await db.SaveChangesAsync();
 
         return ClaimResponse.From(claim);
