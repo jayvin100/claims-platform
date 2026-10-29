@@ -606,3 +606,27 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Process deviation, logged:** no round 2 was run. Q2 to Q6 were unanimous, and on Q1 the dissenting member had already said it accepts (a). council.md asks for a round 2.
 - **Dispatched:** the same fixer applies D79 to D84 after its bug fixes.
 
+
+## Entry #35 (Thu 29 Oct 13:58): final fixes merged and checked live
+
+- **Fixer agent (13:52–13:57), two commits:**
+  - **`f212da6`, review fixes:**
+    - **Kafka data volume:** Kafka's default data folder was `/tmp` inside the container, so its data never survived a recreate. It now writes to a `kafka-data` named volume.
+    - **Reserve text:** keeps all 28 decimal places a decimal can hold, with a new test case for `1.0000000000001`.
+    - **Officer screen:**
+      - uses the shared 404 message;
+      - keeps line breaks in questions, answers and history;
+      - shows Market names, and the incident date in the same format as the Claimant screens.
+    - **401 message:** now says "Your demo user isn't recognised. Use Switch user."
+    - **Tests:** the Reporting test is renamed, and a new `ClaimExceptionHandlerTests` proves a concurrency conflict comes back as 409.
+    - **README:** the conflict demo now uses two separate windows.
+  - **`eb41601`, council decisions:**
+    - **D79:** a `SkipUnreadable` flag that only Notifications turns on, about 30 lines, with a three-case test.
+    - **README known limits:** D79 for Reporting, plus D80, D82 and D83.
+    - **D81:** the Exposure comment.
+    - **D84:** the ADR-0005 wording.
+- **Lead's checks after merging:**
+  - **Tests:** 188 pass on main.
+  - **Stack:** `docker compose up -d --wait` recreated Kafka on the new volume, and both containers are healthy. This dropped the shared dev topic's old events once, as expected.
+  - **Live Kafka check:** a fresh database on port 5299 took an HK Claim through submit, pick up, Reserve 1234.5, approve and settle. Exposure for HK showed 1 open Claim and HKD 1234.5 before the settle, and 0 and 0 four seconds after it. The console printed 4 simulated emails (submitted, picked up, approved, settled; ReserveSet is skipped by design). The only "fail" line was the harmless first-run one the README already explains.
+- **Build time:** 3h11m of the 5h cap.
