@@ -1047,3 +1047,28 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - Codex found nothing to fix. It also type-checked the change, and an in-memory RxJS run confirmed three things: timeouts surface as errors, polling continues afterwards, and a refresh still cancels an older GET.
   - Claude made two comment points: action calls have no timeout, and the Dashboard's 4.5 s covers all three GETs. Both were added by the fixer.
 - **Next:** the overview page regenerates from this main with the final review's fixes, then /simplify.
+
+## Entry #61 (Thu 29 Oct 15:29): overview regenerated; /simplify reported; I chose all four cleanups
+
+- **Overview merged** (`7fdf4db`), regenerated on main `f148308`, with the final review's fixes:
+  - live counts: 93 D-rows, 211 tests;
+  - the later AI slips and deviations added, marked as added;
+  - red now means only override or correction, and directions and challenges are blue;
+  - #11's outbox line reads "sided with the AI over Codex";
+  - the Gantt and phase table run on the whole time log;
+  - the response-tree note is rescoped, #43's council tag is removed, and every entry number in a list is linked;
+  - `processed_events` is labelled one row per consumer and event;
+  - D91–D93 are in the explorer;
+  - the dark-mode contrast is fixed.
+  Checked in Chrome: zero console errors, no sideways scroll at 390 px.
+- **/simplify, report only, as I asked:** four Claude reviewers (reuse, simplification, efficiency, altitude) and Codex covered the whole code. Verdicts:
+  - **Efficiency:** no cleanup. Every cost is a deliberate trade-off or already a known limit (D83).
+  - **Reuse:** yes, small. The test helpers are copied into up to 5 files, the polling chain is written on 5 screens, the role picker has its own error message, and table styles repeat on 3 screens.
+  - **Simplification:** yes, small. The test helpers, plus an optional form-group validator and a tidier `rejectionReason`. Leave the polling code and `notFound` alone: there are no Angular tests, and D92 just edited all five screens.
+  - **Altitude:** no cleanup, except one root-cause patch. The Officer screen overrides the pick-up 409 with "Another Officer picked up this Claim first", which is wrong when the same Officer retries in a second tab.
+  - **Codex:** no cleanup before the panel: "rehearsal is worth more than another refactor and verification cycle".
+- **My choice:** asked which cleanups to apply, I picked all four options: "Test helpers (Recommended), Polling helper, Small Angular tidies, Pick-up message". That goes against 3 of the 5 reviewers, who advised no cleanup before the panel. The polling helper also goes against the simplification and altitude reviewers' advice not to do it without Angular tests. The pick-up change is logged as **D94**, my own decision.
+- **Fixers started:**
+  - backend and tests: the shared test helpers, and the domain's pick-up message;
+  - Angular: one `poll()` helper, the form-group validator, the `rejectionReason` tidy, `@if` instead of a nested ternary, shared table styles, the role picker's error message if it fits, distinct detail-screen selectors, and removing the pick-up override.
+  Each gets a Claude and a Codex review before it merges.
