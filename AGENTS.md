@@ -16,11 +16,11 @@ Read "How we work (strict)" in [docs/agent-prompt.md](docs/agent-prompt.md) befo
 
 ### Issue tracker
 
-Local markdown: specs and tickets live under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+GitHub Issues via `gh`. The wayfinder map is #1 (the single source of truth for the assignment); the spec is #2, a sub-issue of the map; tickets are sub-issues of the spec, with native blocking links. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-The five default roles, recorded as a `Status:` line in each ticket file. See `docs/agents/triage-labels.md`.
+The five default roles as GitHub labels, plus `wayfinder:*` labels on the map and decision tickets. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

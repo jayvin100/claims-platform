@@ -17,7 +17,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - A second AI drafted the initial agent prompt. I had the first AI critique it. Changes I accepted: fewer "continue?" stops (time cost); resolve the DB contradiction; add fake-identity ownership enforcement; add a set-reserve action (otherwise exposure is always zero); make exposure read from the Kafka projection so Kafka isn't decorative; group exposure by market + currency; add optimistic concurrency, idempotent consumers, and IEventPublisher for testability; use real `date` for the time log; mention NSwag as a .NET-friendly client generator.
 - Created the private GitHub repo and cloned it locally.
 
-**My reasons:** _(to be filled in by Jay)_
+**My reasons:** I wanted another agent's point of view and insight rather than relying on one. I'll also have this agent write a full prompt for Codex on the whole assignment as well.
 
 ---
 
@@ -34,7 +34,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Asked:** `/ask-matt`, to pick a workflow from the Matt Pocock skills that shows how I direct agents.
 - **AI proposed:** setup → `/grill-with-docs` (ASK items become ADRs) → `/to-spec` → `/to-tickets` (local markdown in `.scratch/`) → `/implement` per ticket with `/clear` between tickets (each one runs `/tdd` and `/code-review`) → `/implement-spec` with parallel subagents only where the ticket graph forks → `/retro`. It flagged two consequences: the build order becomes vertical slices (backend slices first, Angular last), and the process adds about 45 minutes of overhead.
 - **Accepted:** the flow, vertical slices, and the local tracker.
-- **Overrode:** the AI suggested `CLAUDE.md` as the steering file; I chose `AGENTS.md`. Reason: _(pending Jay)_
+- **Overrode:** the AI suggested `CLAUDE.md` as the steering file; I chose `AGENTS.md`. Reason: it's agent-agnostic. Claude Code now reads both files, but `AGENTS.md` is the cross-tool industry standard, so any agent (Codex included) picks up the same rules.
 - **Note:** the workflow skills can't be invoked by the agent (they are marked user-invoked only), so I run each phase command myself. The agent wrote `AGENTS.md` so the working rules survive each `/clear`.
 
 ## Entry #3 (Thu 29 Oct 10:56): skills setup
@@ -60,7 +60,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 ## Entry #5 (Thu 29 Oct 11:05): event list, and which skills to use
 
 - **AI caught a gap in my prompt:** none of the six events carried a Reserve change, so the read model couldn't calculate Exposure. It proposed adding `ReserveSet` and splitting `ClaimDecided` into `ClaimApproved` and `ClaimRejected` (D32). Accepted.
-- **Asked:** should I use `/wayfinder`, `/codebase-design` or `/domain-modeling` for the assignment as a whole? AI recommended: no `/wayfinder` (it's for efforts too big and foggy for one session, and the design cleared in one grilling); no separate `/codebase-design` session (`/tdd` pulls it in as a reference when a module's interface is in question); and keep `/domain-modeling` running, since `/grill-with-docs` already uses it. My decision: _(pending Jay)_
+- **Asked:** should I use `/wayfinder`, `/codebase-design` or `/domain-modeling` for the assignment as a whole? AI recommended: no `/wayfinder` (it's for efforts too big and foggy for one session, and the design cleared in one grilling); no separate `/codebase-design` session (`/tdd` pulls it in as a reference when a module's interface is in question); and keep `/domain-modeling` running, since `/grill-with-docs` already uses it. My decision: see entry #8.
 - Corrected entry #4's time: the AI had written 11:03 before running `date`, which said 11:02.
 
 ## Entry #6 (Thu 29 Oct 11:09): spec (`/to-spec`)
@@ -81,3 +81,15 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - It merged the outbox publisher with the Notifications consumer so ticket 06 can be shown working end to end.
   - Tickets 04 and 05 could run in parallel, but both change the Claim, so running them one after the other is safer.
 - **Accepted** the breakdown as proposed.
+
+## Entry #8 (Thu 29 Oct 11:24): GitHub Issues and a wayfinder map
+
+- **Correction:** entries #2 and #3 record me as accepting a local markdown tracker. I hadn't chosen that. The AI carried it over from an earlier note and declared it "settled" during setup. The spec and tickets were wrongly written to `.scratch/` as a result.
+- **Overrode** (tracker): everything lives on GitHub, not locally, because the panel will inspect my GitHub repo.
+- **Overrode** (wayfinder): the AI had advised against `/wayfinder` because all decisions were settled in one grilling session. I chose it anyway as the overall tracker. Reason: it gives the whole assignment one source of truth that points to everything else, tracked through sub-issues.
+- **AI then built:**
+  - **#1** is the wayfinder map, holding the destination, notes, decisions so far (linked to the ADRs and decision log), not-yet-specified items and out of scope.
+  - **#2** is the spec, a sub-issue of the map.
+  - **#3–#14** are the 12 tickets, sub-issues of the spec, with GitHub's native "blocked by" links and the `ready-for-agent` label.
+  - The tracker config was switched to GitHub and the `.scratch/` copies were deleted, so GitHub is the only source of truth.
+- **AI flagged a deviation from the skill:** wayfinder maps normally hold only decision tickets. Here the map also parents the spec and its build tickets, because I wanted one tracker for the whole assignment. Future decisions (for example the Codex review) become `wayfinder:*` tickets under #1.
