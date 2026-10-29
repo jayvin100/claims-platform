@@ -383,3 +383,12 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Smoke checks and the fixed addresses:** the app's API address (5169) and the API's CORS origin (4200) are fixed. Builders may point the app at their own API only while smoke-testing, and must revert it before committing. They use headless Chrome with web security off for that check.
 - **#9 (the read model)** waits for #8 to merge.
 - **#8's fixer** is rebasing onto main (its migration will be regenerated after #7's) and is applying the review fixes and D68.
+
+## Entry #25 (Thu 29 Oct 13:24): council fixes merged (D66, D71)
+
+- **Fixer agent** (own worktree, `claims_test_fix1`):
+  - **D71 bug fixed:** the identity interceptor now compares the request's whole origin with the API's (`isApiRequest`). Before, a prefix check would have sent the identity headers to `http://localhost:51690` too.
+  - **D66 pinned by two tests:** another Claimant's blank answer, and another Officer's blank rejection reason, each get 400 before the ownership or Assigned Officer check, and no outbox event is written.
+  - **Production code:** unchanged for D66.
+- **Review:** no separate review agents. Both changes were specified line by line by the council, and the lead read the interceptor diff before merging.
+- **Result:** 155 tests pass; `ng build` is clean. Merged to main by rebase and fast-forward (`1e7ec47`). Build time: 2h36m of the 5h cap.
