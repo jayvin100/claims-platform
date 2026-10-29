@@ -99,3 +99,12 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Correction:** the line in my opening prompt saying to build the outbox "only if time allows" was drafted by the earlier AI, not by me.
 - **My reason for building the outbox now (D15):** when the AI recommended it, I saw no reason not to just go ahead and build it.
 - **Repo made public** at my request. Before switching, the AI checked the code, docs and all 14 issues for client names and secrets (none found) and confirmed that only `main` is on GitHub.
+
+## Entry #10 (Thu 29 Oct 11:35): cross-agent review by Codex
+
+- **Asked:** write a full prompt and context for Codex to evaluate the whole assignment, saved to my Downloads folder.
+- **AI wrote** `~/Downloads/codex-review-prompt.md`:
+  - Codex is read-only and writes its review to `~/Downloads/codex-review.md`.
+  - It must sketch its own design from the brief **before** reading our plan, so it doesn't just agree.
+  - It then gives a verdict on each of D1–D32 and the ADRs, checks the spec and tickets, flags technical risks on this machine (marked verified or from memory), proposes a cut list, writes the hardest panel questions, and gives honest feedback on this journal, including whether my acceptances look like rubber-stamping.
+- **Tracked** as wayfinder ticket #15 (`wayfinder:task`, claimed by me) under the map #1. It graduated out of the map's "Not yet specified" section.
