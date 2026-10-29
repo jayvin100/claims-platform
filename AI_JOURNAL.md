@@ -93,3 +93,9 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **#3–#14** are the 12 tickets, sub-issues of the spec, with GitHub's native "blocked by" links and the `ready-for-agent` label.
   - The tracker config was switched to GitHub and the `.scratch/` copies were deleted, so GitHub is the only source of truth.
 - **AI flagged a deviation from the skill:** wayfinder maps normally hold only decision tickets. Here the map also parents the spec and its build tickets, because I wanted one tracker for the whole assignment. Future decisions (for example the Codex review) become `wayfinder:*` tickets under #1.
+
+## Entry #9 (Thu 29 Oct 11:27): outbox reason; repo made public
+
+- **Correction:** the line in my opening prompt saying to build the outbox "only if time allows" was drafted by the earlier AI, not by me.
+- **My reason for building the outbox now (D15):** when the AI recommended it, I saw no reason not to just go ahead and build it.
+- **Repo made public** at my request. Before switching, the AI checked the code, docs and all 14 issues for client names and secrets (none found) and confirmed that only `main` is on GitHub.
