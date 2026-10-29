@@ -1,6 +1,7 @@
 using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Identity;
+using Claims.Api.Infrastructure.Kafka;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,17 @@ builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ClaimExceptionHandler>();
+
+// All Kafka work runs in background services, so REST never waits on the broker (ADR-0003, ADR-0004).
+// One setting turns all of it off; the integration tests do, so they never need Kafka (D36).
+var kafka = builder.Configuration.GetSection(KafkaOptions.Section).Get<KafkaOptions>() ?? new KafkaOptions();
+builder.Services.AddSingleton(kafka);
+if (kafka.Enabled)
+{
+    // Like migrations, creating the topic is a Development convenience (D25).
+    if (builder.Environment.IsDevelopment())
+        builder.Services.AddHostedService<KafkaTopicCreator>();
+}
 
 var app = builder.Build();
 

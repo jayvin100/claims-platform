@@ -8,6 +8,7 @@ namespace Claims.Api.Tests;
 /// <summary>
 /// Runs the real API in memory against its own database (claims_test) on the Compose Postgres,
 /// so tests never touch the demo data. Development mode means startup applies migrations and seeds.
+/// All Kafka work is switched off.
 /// </summary>
 public class ApiFactory : WebApplicationFactory<Program>
 {
@@ -20,6 +21,8 @@ public class ApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("ConnectionStrings:Claims", TestConnectionString);
+        // No topic creation, outbox publisher or consumers: tests read the outbox table instead of Kafka.
+        builder.UseSetting("Kafka:Enabled", "false");
 
         // Adds the test-only WhoAmIController alongside the API's own controllers.
         builder.ConfigureServices(services =>
