@@ -1,20 +1,21 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { EMPTY, Observable, Subject, catchError, merge, switchMap, timer } from 'rxjs';
+import { EMPTY, Observable, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
+import { Claim, formatAmount, problemMessage, statusLabels } from '../claims';
 import { CurrentUser } from '../identity/current-user';
-import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
+import { OfficerApi } from './officer-api';
 
 /**
- * One Claim as an Officer sees it: details, Reserve, Info Requests and timeline, with only the
+ * One Claim as an Officer sees it: details, Reserve, Info Requests and Claim History, with only the
  * actions its status and Assigned Officer allow. The API still checks every rule; hiding buttons
  * just saves the Officer from a refusal they could have predicted.
  */
 @Component({
   selector: 'app-claim-detail',
-  imports: [RouterLink, DatePipe, DecimalPipe],
+  imports: [RouterLink, DatePipe],
   template: `
     <p><a routerLink="/queue">← Back to the Queue</a></p>
 
@@ -34,11 +35,10 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
         </dd>
         <dt>Reserve</dt>
         <dd>
-          <!-- Written as the API's timeline writes it, "SGD 1,500.00": currency code, then amount. -->
           @if (claim.reserveAmount === null) {
             Not set
           } @else {
-            {{ claim.currency }} {{ claim.reserveAmount | number: '1.2-10' }}
+            {{ formatAmount(claim.currency, claim.reserveAmount) }}
           }
         </dd>
         <dt>Market</dt>
@@ -62,23 +62,25 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
         }
 
         @if (claim.status === 'Submitted') {
-          <button type="button" [disabled]="busy()" (click)="act(api.pickUp(claim.id))">
-            Pick up
-          </button>
+          <button type="button" [disabled]="busy()" (click)="pickUp()">Pick up</button>
+        } @else if (claim.status === 'Settled' || claim.status === 'Rejected') {
+          <!-- Checked before "held by another Officer": a final Claim is final for everyone. -->
+          <p>This Claim is {{ statusLabels[claim.status] }}, which is final.</p>
         } @else if (claim.assignedOfficerId && !isMine()) {
           <p>Another Officer holds this Claim, so only they can act on it.</p>
         } @else if (claim.status === 'UnderReview') {
-          <form (submit)="$event.preventDefault(); setReserve(claim.id, amount)">
+          <form (submit)="$event.preventDefault(); setReserve(amount)">
             <label>
               Reserve ({{ claim.currency }})
-              <input #amount type="number" min="0.01" step="0.01" required />
+              <!-- step="any" so the browser accepts any number of decimals (D61); setReserve checks > 0. -->
+              <input #amount type="number" step="any" required />
             </label>
             <button [disabled]="busy()">
               {{ claim.reserveAmount === null ? 'Set Reserve' : 'Revise Reserve' }}
             </button>
           </form>
 
-          <form (submit)="$event.preventDefault(); requestInfo(claim.id, question)">
+          <form (submit)="$event.preventDefault(); requestInfo(question)">
             <label>
               Question for the Claimant
               <textarea #question maxlength="1000" required></textarea>
@@ -90,7 +92,7 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
             <button
               type="button"
               [disabled]="busy() || claim.reserveAmount === null"
-              (click)="act(api.approve(claim.id))"
+              (click)="approve()"
             >
               Approve
             </button>
@@ -99,7 +101,7 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
             }
           </p>
 
-          <form (submit)="$event.preventDefault(); reject(claim.id, reason)">
+          <form (submit)="$event.preventDefault(); reject(reason)">
             <label>
               Reason for rejection (the Claimant sees it)
               <textarea #reason maxlength="1000" required></textarea>
@@ -109,11 +111,9 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
         } @else if (claim.status === 'InfoRequested') {
           <p>Waiting for the Claimant to answer your Info Request.</p>
         } @else if (claim.status === 'Approved') {
-          <button type="button" [disabled]="busy()" (click)="act(api.settle(claim.id))">
-            Settle ({{ claim.currency }} {{ claim.reserveAmount | number: '1.2-10' }})
+          <button type="button" [disabled]="busy()" (click)="settle()">
+            Settle ({{ formatAmount(claim.currency, claim.reserveAmount!) }})
           </button>
-        } @else {
-          <p>This Claim is {{ statusLabels[claim.status] }}, which is final.</p>
         }
       </section>
 
@@ -141,7 +141,7 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
         </ul>
       }
 
-      <h2>Timeline</h2>
+      <h2>Claim History</h2>
       <ol>
         @for (entry of claim.history; track $index) {
           <li>
@@ -187,7 +187,7 @@ import { Claim, OfficerApi, problemMessage, statusLabels } from './officer-api';
   `,
 })
 export class ClaimDetail {
-  protected readonly api = inject(OfficerApi);
+  private readonly api = inject(OfficerApi);
   private readonly me = inject(CurrentUser).user;
   private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
 
@@ -198,9 +198,12 @@ export class ClaimDetail {
   protected readonly busy = signal(false);
   protected readonly isMine = computed(() => this.claim()?.assignedOfficerId === this.me()?.id);
   protected readonly statusLabels = statusLabels;
+  protected readonly formatAmount = formatAmount;
 
   /** Fetches at once after an action; switchMap drops any poll still in flight, so it can't overwrite the result. */
   private readonly reload = new Subject<void>();
+  /** Fires once if the Claim doesn't exist, to stop polling for it. */
+  private readonly notFound = new Subject<void>();
 
   constructor() {
     // Poll every 5 seconds (D30), as on the Queue; takeUntilDestroyed stops it when the Officer leaves.
@@ -209,13 +212,17 @@ export class ClaimDetail {
         switchMap(() =>
           this.api.claim(this.id).pipe(
             catchError((err: HttpErrorResponse) => {
-              this.loadError.set(
-                err.status === 404 ? 'There is no such Claim.' : problemMessage(err),
-              );
+              if (err.status === 404) {
+                this.loadError.set('There is no such Claim.');
+                this.notFound.next();
+              } else {
+                this.loadError.set(problemMessage(err));
+              }
               return EMPTY;
             }),
           ),
         ),
+        takeUntil(this.notFound),
         takeUntilDestroyed(),
       )
       .subscribe((claim) => {
@@ -224,35 +231,66 @@ export class ClaimDetail {
       });
   }
 
-  /** Sends one action. On success shows the updated Claim and runs `done` (to clear a form). */
-  protected act(call: Observable<Claim>, done?: () => void): void {
+  protected pickUp(): void {
+    // Story 34: a 409 here means another Officer picked the Claim up between our poll and this click.
+    this.act(this.api.pickUp(this.id), {
+      conflictMessage: 'Another Officer picked up this Claim first.',
+    });
+  }
+
+  protected setReserve(input: HTMLInputElement): void {
+    const amount = Number(input.value);
+    if (!(amount > 0)) {
+      this.actionError.set('The Reserve must be greater than zero.');
+      return;
+    }
+    this.act(this.api.setReserve(this.id, amount), { done: () => (input.value = '') });
+  }
+
+  protected requestInfo(input: HTMLTextAreaElement): void {
+    this.act(this.api.requestInfo(this.id, input.value), { done: () => (input.value = '') });
+  }
+
+  protected approve(): void {
+    this.act(this.api.approve(this.id));
+  }
+
+  protected reject(input: HTMLTextAreaElement): void {
+    this.act(this.api.reject(this.id, input.value), { done: () => (input.value = '') });
+  }
+
+  protected settle(): void {
+    this.act(this.api.settle(this.id));
+  }
+
+  /**
+   * Sends one action. On success shows the updated Claim and runs `done` (to clear a form).
+   * On a 409, `conflictMessage` replaces the Claim's own message when the caller knows the cause.
+   */
+  private act(
+    call: Observable<Claim>,
+    options: { done?: () => void; conflictMessage?: string } = {},
+  ): void {
     this.busy.set(true);
     this.actionError.set('');
     call.subscribe({
       next: (claim) => {
         this.claim.set(claim);
         this.busy.set(false);
-        done?.();
+        options.done?.();
         this.reload.next();
       },
-      // A 403 (another Officer holds it) or 409 (its status changed) reads as the Claim's own message.
+      // A 403 (another Officer holds it) or 409 (its status changed) reads as the Claim's own message,
+      // unless the caller gave a clearer one for the 409.
       error: (err: HttpErrorResponse) => {
-        this.actionError.set(problemMessage(err));
+        this.actionError.set(
+          err.status === 409 && options.conflictMessage
+            ? options.conflictMessage
+            : problemMessage(err),
+        );
         this.busy.set(false);
         this.reload.next(); // show what changed, so the controls match the Claim again
       },
     });
-  }
-
-  protected setReserve(id: string, input: HTMLInputElement): void {
-    this.act(this.api.setReserve(id, Number(input.value)), () => (input.value = ''));
-  }
-
-  protected requestInfo(id: string, input: HTMLTextAreaElement): void {
-    this.act(this.api.requestInfo(id, input.value), () => (input.value = ''));
-  }
-
-  protected reject(id: string, input: HTMLTextAreaElement): void {
-    this.act(this.api.reject(id, input.value), () => (input.value = ''));
   }
 }

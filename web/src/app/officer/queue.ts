@@ -3,7 +3,8 @@ import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { EMPTY, catchError, switchMap, timer } from 'rxjs';
-import { OfficerApi, QueueItem, problemMessage, statusLabels } from './officer-api';
+import { problemMessage, statusLabels } from '../claims';
+import { OfficerApi, QueueItem } from './officer-api';
 
 /**
  * The Officer's Queue: unassigned Submitted Claims plus their own open Claims. The API already
