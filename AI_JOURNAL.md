@@ -18,7 +18,8 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 12:39 | 12:44 | Second review of #5 by two Claude agents plus Codex; Codex review made a standing rule |
 | 12:48 | 12:58 | Ticket 04 (#6): Reserve, approve, reject, settle; tests; review by two Claude agents plus Codex |
 | 12:58 | 13:00 | Plan parallel waves for the remaining tickets; per-worktree databases; fix a test start-up race |
-| 13:00 | | Wave 1 running in parallel: #7, #8, #10, each in its own worktree |
+| 13:00 | 13:23 | Wave 1 in parallel: #7, #8, #10 built in worktrees; reviews by two Claude agents plus Codex; #10 and #7 merged; wave-1 council |
+| 13:23 | | Wave 2 running in parallel: #11, #12 builders; #8 fixer; council fixes |
 
 ---
 
@@ -337,3 +338,48 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Before this rule** (logged so it is clear who wrote what): the lead itself applied #10's review fixes (entry #20) and one #7 fix, a single `OpenInfoRequest` property on the Claim that holds the "at most one open" check, which a Claude standards review asked for.
 - **Tooling bug found and fixed:** the Codex review of #7 hung for about 8 minutes at "Reading additional input from stdin". Run in the background, `codex exec` waited on the shell's open stdin. The AI stopped it and reran it with `< /dev/null`, and added that to the command in `docs/agents/codex-review.md`. (The #6 and #10 reviews happened to finish without it.)
 
+## Entry #22 (Thu 29 Oct 13:23): ticket 05, Info Requests (#7, wave 1)
+
+- **Built by a wave-1 agent** in its own worktree, test-first at both seams:
+  - **The Claim:** `RequestInfo` (Assigned Officer only, Under Review, at most one open Info Request) moves the Claim to Info Requested; `ProvideInfo` (the owning Claimant) answers the open one and moves it back to Under Review.
+  - **Endpoints:** `POST info-requests` and `POST info-response`.
+  - **Data:** an `InfoRequest` entity and the `InfoRequests` migration. The Claim response lists the Info Requests with their answers.
+  - **Tests:** the tests' `InStatus` helper now reaches Info Requested through `RequestInfo`, so no test sets a status by reflection any more (D58 resolved).
+- **Reviews:** Claude spec, Claude standards and Codex, run in parallel on the branch.
+  - **Claude spec:** no gaps. It flagged that model validation answers 400 before D60's 403 and 409 checks; the same was the one hard issue from **Codex**. Sent to the council, which amended D60 (D66).
+  - **Claude standards:**
+    - The "at most one open" lookup was repeated, so it is now one `OpenInfoRequest` property, applied by the lead before entry #21's rule.
+    - `RequestInfo` checks both the status and the open request, so a fixer agent added a comment saying why.
+    - D58 was out of date, so the fixer marked it resolved.
+    - The duplicated HTTP test helpers across test files are left on purpose: each test file reads on its own.
+    - Ownership living in the controller went to the council (D67).
+- **Bugs found and fixed:** none in behaviour; the review findings above were structure and decisions.
+- **Fixer agent (13:20):** committed the fixes and rebased onto main with no conflicts. 153 tests pass before and after the rebase.
+- **Merged** to main by fast-forward (`c627e9a`, `b78fb4e`). Build time at merge: 2h32m of the 5h cap.
+
+## Entry #23 (Thu 29 Oct 13:23): wave-1 council decides the implementation calls
+
+- **Ran under Jay's delegation** (entry #19, docs/agents/council.md). The members were Claude A (simplicity lens), Claude B (correctness lens) and Codex (GPT 6.1 Sol, high reasoning, read-only). It used one brief: five contested questions plus 17 calls to accept unless someone objected. The outcomes are D66–D72 in docs/decisions.md.
+- **Q1, validation order versus D60:**
+  - **Round 1:** Claude A and Claude B picked (a), amend D60 so a malformed body gets 400 first. Codex picked (b), move validation into the domain after the 403, 404 and 409 checks.
+  - **Round 2:** Codex switched to (a), because the 400 reveals nothing and amending avoids reworking merged code.
+  - **Result:** (a), unanimous (D66).
+- **Q2, ProvideInfo ownership:** (a), keep it in the controller with a 404. Unanimous in round 1 (D67).
+- **Q3, unknown or no-email events in the notifications consumer:**
+  - **Round 1:** Claude A picked (c), an ignored list plus a warning for unknown types. Claude B picked (c) plus a test that covers all eight event types, and corrected the brief: ClaimPickedUp is emailed, so the ignored list is only ReserveSet and InfoProvided. Codex picked (b), throw on unknown types so they retry.
+  - **Round 2:** Claude A added Claude B's test. Codex kept (b).
+  - **Result:** (c) plus the coverage test, 2 of 3 (D68).
+  - **Dissent (Codex):** retry unknown types, because the test cannot catch events added outside this code.
+- **Q4, publish order:** (a), per-Claim order, documented. Unanimous in round 1 (D69). Claude B checked that the publisher doesn't skip a lower sequence that commits late.
+- **Q5, CORS:** (a), keep CORS in Development only. Unanimous in round 1 (D70).
+- **Objection to U3 (Codex), a real bug:** the identity interceptor matched the API by URL prefix, so `http://localhost:51690` would also get the headers. Both Claude agents agreed in round 2. A fixer agent now compares origins (D71).
+- **Everything else** (#10's guards, layout and tooling; #7's limits and query shape; #8's consumer, retry, partitions, timeouts, offsets and simulated recipient) was accepted as built (D72).
+- **Follow-up work dispatched to fixer agents:** the origin check and two tests that pin D66 (one fixer); the ignored list, the warning and the coverage test, sent to #8's fixer.
+
+## Entry #24 (Thu 29 Oct 13:23): wave 2 launched
+
+- **#7 and #10 are both on main, so #11 Claimant screens and #12 Officer screens started in parallel.** Each runs as a builder agent in its own worktree, with its own API database and ports (`claims_t11`, API 5211, `ng serve` 4211; `claims_t12`, 5212, 4212).
+- Each keeps its screens in its own folder (`claimant/`, `officer/`) and only adds routes to `app.routes.ts`, so the two merges barely touch.
+- **Smoke checks and the fixed addresses:** the app's API address (5169) and the API's CORS origin (4200) are fixed. Builders may point the app at their own API only while smoke-testing, and must revert it before committing. They use headless Chrome with web security off for that check.
+- **#9 (the read model)** waits for #8 to merge.
+- **#8's fixer** is rebasing onto main (its migration will be regenerated after #7's) and is applying the review fixes and D68.
