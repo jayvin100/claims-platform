@@ -457,3 +457,47 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Fixer agent (13:31–13:34):** applied the fixes. Its smoke check: a 1000.005 Reserve was accepted and shown unrounded, a 0 Reserve was refused, the losing pick-up message showed, the Settled Claim read as final, and a missing Claim was fetched once.
 - **Implementation calls for the wave-2 council:** Approve is disabled until a Reserve is set; the detail lives at `/queue/:id`; the Assigned Officer shows as "You", "Another Officer" or "Nobody yet"; forms read the input element.
 - **Result:** `ng build` is clean, and the API code is unchanged (166 tests). Merged to main by rebase and fast-forward (`3641773`, `7a00789`). Build time at merge: 2h46m of the 5h cap.
+
+## Entry #28 (Thu 29 Oct 13:38): ticket 09, Claimant screens (#11, wave 2)
+
+- **Built by a wave-2 agent** in its own worktree (13:23–13:31):
+  - **Code:** a typed `ClaimantApi`, the My Claims list, the submit form at `/my-claims/new` (it shows the new Claim Number), and Claim detail at `/my-claims/:id`.
+  - **Claim detail shows:** the details, the Reserve, the rejection reason, the Info Requests with their answers, the answer box only while a request is open, and the Claim History.
+  - **Polling:** both the list and the detail poll every 5 s.
+  - **Smoke check:** in headless Chrome against its own API, it went through submit, an Officer question sent via curl, answering it, and a rejection reason.
+- **Bugs found and fixed by the agent (during its smoke check):**
+  - The answer form never sent: a form without `[formGroup]` doesn't fire `ngSubmit`.
+  - A Policy Number or description made only of spaces passed the form.
+  - A 404 showed "Not Found"; it now shows "This Claim was not found."
+  - A poll in flight could bring back an Info Request that had just been answered.
+- **Reviews** (Claude spec, Claude standards and Codex, in parallel):
+  - **Codex, hard issue:** a future incident date passed the form. **Fixed:** the form now checks the date against today on the chosen Market's clock (D47) and re-checks when the Market changes. The API is still the real guard.
+  - **Codex, hard issue:** amounts are parsed as JS numbers, so very large or very precise Reserves lose digits in the UI (the API and timeline stay exact). This goes to the wave-2 council.
+  - **Claude standards and spec:**
+    - **Fixed:** the Claim types and helpers duplicated #12's, so they now come from the shared `claims.ts`, and the 404 message moved into the shared `problemMessage`.
+    - **Fixed:** the detail screen kept polling after a 404; it now stops.
+    - **Fixed:** an answer error stayed on screen after the request was answered elsewhere; it now clears.
+    - **Fixed:** the error signals now share one name, `error`.
+    - **Fixed:** an extra "Submitted" column that story 12 doesn't list is removed.
+    - **Left:** the rejection reason is parsed from the "Claim rejected: " history text, which D62 allows; the form's typing casts; the Market list is a hand-written copy (D27).
+- **Fixer agent (13:34–13:37):**
+  - **Its own bug:** after the rebase, `app.routes.ts` had two `ClaimDetail` imports (Claimant and Officer), which broke the build. It renamed them on import.
+  - **Smoke check:** 15 checks passed, including that the Officer screens still load.
+- **Implementation calls:** sent to the wave-2 council.
+- **Result:** `ng build` is clean, and the API is unchanged (166 tests). Merged to main by rebase and fast-forward (`2433387`, `9298fef`). Build time at merge: 2h50m of the 5h cap.
+
+## Entry #29 (Thu 29 Oct 13:38): #9 built and reviewed; #13 started early; wave-2 council running
+
+- **#9 (Reporting read model)** was built in its own worktree (13:28–13:35). It has a Reporting consumer with its own group and a `processed_events` name, one row per Claim, and the `GET /api/reports/exposure` and `/workload` endpoints, which are Officer only. There are 16 new tests; 182 pass. **Manual check:** Exposure for TH dropped to 0 about 0.5 s after the settle.
+- **Bug found while testing (dev environment):** the shared dev Kafka topic holds events from every worktree's API, so a fresh `reporting` group counted Claims its own database doesn't have. This doesn't happen on a fresh clone. #14 must reset the local Kafka topic before the demo.
+- **Reviews:** Claude spec, Claude standards and Codex, run in parallel. None found a hard issue.
+  - **Both Claude and Codex:** Reporting skips unknown event types by copying D68, which was decided for Notifications. In Reporting a skip would leave totals wrong for good. Sent to the council.
+  - **Codex and Claude spec:** an Officer who has never held a Claim is missing from Workload. Sent to the council.
+  - **Claude spec:** Reporting takes the currency from the Claims module's Market table, not from the events. Sent to the council.
+  - **Claude standards:**
+    - `ReserveSet.Currency` is ignored. Sent to the council.
+    - The eight event types are listed twice. A type in one list but not the other would block its partition forever, so a fixer will merge them into one list.
+    - The glossary defines Workload as open Claims only, while D17 also counts Settled and Rejected. Sent to the council.
+    - The duplicate test replays an event that changes nothing. A fixer will make it replay a status change.
+- **#13 (Dashboard) started at 13:36**, built on #9's branch, because the endpoint shapes were already known. It will rebase onto main once #9 merges.
+- **Wave-2 council started at 13:38** on five questions (UI amount precision, Reporting's unknown types, Officers missing from Workload, Reporting's coupling to Claims, and the meaning of Workload) and 16 calls to accept unless someone objects.
