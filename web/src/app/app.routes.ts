@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { ClaimDetail as ClaimantClaimDetail } from './claimant/claim-detail';
 import { MyClaims } from './claimant/my-claims';
 import { SubmitClaim } from './claimant/submit-claim';
+import { Dashboard } from './dashboard/dashboard';
 import { RolePicker } from './identity/role-picker';
 import { claimantGuard, noUserGuard, officerGuard } from './identity/role-guards';
 import { ClaimDetail as OfficerClaimDetail } from './officer/claim-detail';
@@ -26,5 +27,6 @@ export const routes: Routes = [
   },
   { path: 'queue', component: Queue, canActivate: [officerGuard], title: 'Queue' },
   { path: 'queue/:id', component: OfficerClaimDetail, canActivate: [officerGuard], title: 'Claim' },
+  { path: 'dashboard', component: Dashboard, canActivate: [officerGuard], title: 'Dashboard' },
   { path: '**', redirectTo: '' },
 ];
