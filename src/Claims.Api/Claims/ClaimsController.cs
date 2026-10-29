@@ -39,20 +39,28 @@ public class ClaimsController(AppDbContext db, CurrentUser currentUser, TimeProv
             .ToListAsync();
 
     [HttpGet("{id:guid}")]
-    [EndpointSummary("A Claim with its Claim History: the owning Claimant or any Officer")]
+    [EndpointSummary("A Claim with its Claim History and Info Requests: the owning Claimant or any Officer")]
     [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ClaimResponse>> Get(Guid id)
     {
-        var claim = await db.Claims.Include(c => c.History).SingleOrDefaultAsync(c => c.Id == id);
-
-        // Another Claimant's Claim answers 404, not 403, so its existence isn't revealed (D23).
-        bool canSee = currentUser.Role == UserRole.Officer || claim?.ClaimantId == currentUser.Id;
-        if (claim is null || !canSee)
+        var claim = await FindVisibleClaim(id);
+        if (claim is null)
             return NotFound();
 
         return ClaimResponse.From(claim);
     }
+
+    [HttpPost("{id:guid}/info-response")]
+    [Authorize(Roles = nameof(UserRole.Claimant))]
+    [EndpointSummary("Owning Claimant only: answers the open Info Request, returning the Claim to Under Review")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    // Another Claimant's Claim isn't visible to the caller, so ActOnClaim answers 404 before the Claim is touched.
+    public Task<ActionResult<ClaimResponse>> ProvideInfo(Guid id, ProvideInfoRequest request) =>
+        ActOnClaim(id, claim => claim.ProvideInfo(request.Answer, clock.GetUtcNow()));
 
     [HttpPost("{id:guid}/pick-up")]
     [Authorize(Roles = nameof(UserRole.Officer))]
@@ -74,6 +82,17 @@ public class ClaimsController(AppDbContext db, CurrentUser currentUser, TimeProv
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<ActionResult<ClaimResponse>> SetReserve(Guid id, SetReserveRequest request) =>
         ActOnClaim(id, claim => claim.SetReserve(currentUser.Id, request.Amount!.Value, clock.GetUtcNow()));
+
+    [HttpPost("{id:guid}/info-requests")]
+    [Authorize(Roles = nameof(UserRole.Officer))]
+    [EndpointSummary("Assigned Officer only: asks the Claimant a question, moving a Claim Under Review to Info Requested")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public Task<ActionResult<ClaimResponse>> RequestInfo(Guid id, RequestInfoRequest request) =>
+        ActOnClaim(id, claim => claim.RequestInfo(currentUser.Id, request.Question, clock.GetUtcNow()));
 
     [HttpPost("{id:guid}/approve")]
     [Authorize(Roles = nameof(UserRole.Officer))]
@@ -106,11 +125,11 @@ public class ClaimsController(AppDbContext db, CurrentUser currentUser, TimeProv
     public Task<ActionResult<ClaimResponse>> Settle(Guid id) =>
         ActOnClaim(id, claim => claim.Settle(currentUser.Id, clock.GetUtcNow()));
 
-    // Every Officer action: load the Claim, let it apply its own rule, save, and return the updated Claim.
+    // Every action on a Claim: load it, let it apply its own rule, save, and return the updated Claim.
     // A broken rule throws, and ClaimExceptionHandler turns it into 400, 403 or 409.
     private async Task<ActionResult<ClaimResponse>> ActOnClaim(Guid id, Action<Claim> action)
     {
-        var claim = await db.Claims.Include(c => c.History).SingleOrDefaultAsync(c => c.Id == id);
+        var claim = await FindVisibleClaim(id);
         if (claim is null)
             return NotFound();
 
@@ -118,5 +137,22 @@ public class ClaimsController(AppDbContext db, CurrentUser currentUser, TimeProv
         await db.SaveChangesAsync();
 
         return ClaimResponse.From(claim);
+    }
+
+    // The Claim with its Claim History and Info Requests, or null if it doesn't exist or the caller can't see it.
+    // Any Officer sees every Claim; a Claimant sees only their own. Another Claimant's Claim is "not found",
+    // not 403, so its existence isn't revealed (D23).
+    private async Task<Claim?> FindVisibleClaim(Guid id)
+    {
+        // One SQL query for both collections: they stay small, and one query reads them all at the same moment.
+        // Saying so explicitly also stops EF warning that it had to choose between one query and several.
+        var claim = await db.Claims
+            .Include(c => c.History)
+            .Include(c => c.InfoRequests)
+            .AsSingleQuery()
+            .SingleOrDefaultAsync(c => c.Id == id);
+
+        bool canSee = currentUser.Role == UserRole.Officer || claim?.ClaimantId == currentUser.Id;
+        return canSee ? claim : null;
     }
 }

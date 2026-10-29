@@ -132,6 +132,39 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                     b.ToTable("claim_history", (string)null);
                 });
 
+            modelBuilder.Entity("Claims.Api.Claims.InfoRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Answer")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("AnsweredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimId");
+
+                    b.ToTable("info_requests", (string)null);
+                });
+
             modelBuilder.Entity("Claims.Api.Infrastructure.Identity.DemoUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -231,9 +264,20 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Claims.Api.Claims.InfoRequest", b =>
+                {
+                    b.HasOne("Claims.Api.Claims.Claim", null)
+                        .WithMany("InfoRequests")
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Claims.Api.Claims.Claim", b =>
                 {
                     b.Navigation("History");
+
+                    b.Navigation("InfoRequests");
                 });
 #pragma warning restore 612, 618
         }

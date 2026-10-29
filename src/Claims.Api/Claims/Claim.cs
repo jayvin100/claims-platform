@@ -26,6 +26,9 @@ public class Claim
     private readonly List<ClaimHistoryEntry> _history = [];
     public IReadOnlyList<ClaimHistoryEntry> History => _history;
 
+    private readonly List<InfoRequest> _infoRequests = []; // in the order asked; at most one open
+    public IReadOnlyList<InfoRequest> InfoRequests => _infoRequests;
+
     // Raised but not yet saved. AppDbContext moves them to the outbox when the Claim is saved.
     private readonly List<ClaimEvent> _events = [];
     public IReadOnlyList<ClaimEvent> Events => _events;
@@ -86,6 +89,41 @@ public class Claim
         // Invariant culture, so the text doesn't depend on the server's locale.
         var shown = amount.ToString("#,0.00##########", CultureInfo.InvariantCulture);
         Record($"Reserve set to {Currency} {shown}", new ReserveSet(Guid.NewGuid(), Id, ClaimNumber, Market, now, amount, Currency));
+    }
+
+    /// <summary>The Assigned Officer asks the Claimant a question; the Claim waits in Info Requested for the answer.</summary>
+    public void RequestInfo(Guid officerId, string question, DateTimeOffset now)
+    {
+        EnsureAssignedTo(officerId);
+        // Checked before the status rule so the Officer is told which rule stopped them. An open Info Request
+        // always means Info Requested, so this is also the status rule for that one status.
+        if (_infoRequests.Any(r => r.IsOpen))
+            throw new ClaimConflictException("An Info Request is already open. Wait for the Claimant's answer before asking again.");
+        if (Status != ClaimStatus.UnderReview)
+            throw new ClaimConflictException("Info can only be requested while the Claim is Under Review.");
+        if (string.IsNullOrWhiteSpace(question))
+            throw new InvalidClaimException("An Info Request needs a question.");
+
+        _infoRequests.Add(new InfoRequest(question, now));
+        Status = ClaimStatus.InfoRequested;
+        Record("Info requested", new InfoRequested(Guid.NewGuid(), Id, ClaimNumber, Market, now, ClaimantId, question));
+    }
+
+    /// <summary>
+    /// The Claimant answers the open Info Request, which sends the Claim back to Under Review.
+    /// Only the owning Claimant may call this; the controller checks that, as it does for reading (D23).
+    /// </summary>
+    public void ProvideInfo(string answer, DateTimeOffset now)
+    {
+        // An open Info Request exists exactly when the Claim is Info Requested, so this is also the status rule.
+        var open = _infoRequests.SingleOrDefault(r => r.IsOpen)
+            ?? throw new ClaimConflictException("There is no open Info Request to answer.");
+        if (string.IsNullOrWhiteSpace(answer))
+            throw new InvalidClaimException("An answer can't be empty.");
+
+        open.AnswerWith(answer, now);
+        Status = ClaimStatus.UnderReview;
+        Record("Info provided", new InfoProvided(Guid.NewGuid(), Id, ClaimNumber, Market, now));
     }
 
     /// <summary>The Assigned Officer accepts the Claim at its current Reserve.</summary>

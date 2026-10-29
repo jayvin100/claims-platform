@@ -22,6 +22,16 @@ public record ReserveSet(
     decimal Amount, string Currency)
     : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
 
+public record InfoRequested(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
+    Guid ClaimantId, string Question)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
+// Only the common fields: Reporting learns the status change, and Notifications ignores it.
+public record InfoProvided(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
 public record ClaimApproved(
     Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
     Guid ClaimantId)

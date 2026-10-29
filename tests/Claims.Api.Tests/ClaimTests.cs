@@ -369,6 +369,7 @@ public class ClaimTests
     [InlineData("approve", ClaimStatus.UnderReview)]
     [InlineData("reject", ClaimStatus.UnderReview)]
     [InlineData("settle", ClaimStatus.Approved)]
+    [InlineData("request info", ClaimStatus.UnderReview)]
     public void An_Officer_who_is_not_the_Assigned_Officer_is_refused_every_action(string action, ClaimStatus status)
     {
         var claim = InStatus(status);
@@ -383,6 +384,7 @@ public class ClaimTests
             "set Reserve" => () => claim.SetReserve(otherOfficerId, 1000m, Later),
             "approve" => () => claim.Approve(otherOfficerId, Later),
             "reject" => () => claim.Reject(otherOfficerId, "Policy had lapsed", Later),
+            "request info" => () => claim.RequestInfo(otherOfficerId, "Was anyone hurt?", Later),
             _ => () => claim.Settle(otherOfficerId, Later),
         };
         var error = Assert.Throws<NotAssignedOfficerException>(act);
@@ -392,9 +394,155 @@ public class ClaimTests
         Assert.Empty(claim.Events);
     }
 
+    [Fact]
+    public void Assigned_Officer_asks_the_Claimant_a_question_which_moves_the_Claim_to_Info_Requested()
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+
+        claim.RequestInfo(OfficerId, "Was anyone hurt?", Later);
+
+        Assert.Equal(ClaimStatus.InfoRequested, claim.Status);
+        Assert.Equal(Later, claim.UpdatedAt);
+        var infoRequest = Assert.Single(claim.InfoRequests);
+        Assert.Equal(("Was anyone hurt?", Later), (infoRequest.Question, infoRequest.RequestedAt));
+        Assert.Null(infoRequest.Answer);
+        Assert.Null(infoRequest.AnsweredAt);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.InfoRequested, "Info requested", Later), (entry.Status, entry.Description, entry.OccurredAt));
+        var requested = Assert.IsType<InfoRequested>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, requested.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, Later), (requested.ClaimId, requested.ClaimNumber, requested.Market, requested.OccurredAt));
+        Assert.Equal((ClaimantId, "Was anyone hurt?"), (requested.ClaimantId, requested.Question));
+    }
+
+    [Fact]
+    public void Asking_while_an_Info_Request_is_open_is_refused()
+    {
+        var claim = InStatus(ClaimStatus.InfoRequested);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.RequestInfo(OfficerId, "And the other driver's details?", Later));
+
+        Assert.Equal("An Info Request is already open. Wait for the Claimant's answer before asking again.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.Submitted)]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Asking_is_refused_from_every_status_except_Under_Review(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.RequestInfo(OfficerId, "Was anyone hurt?", Later));
+
+        Assert.Equal("Info can only be requested while the Claim is Under Review.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Asking_without_a_question_is_refused(string question)
+    {
+        var claim = InStatus(ClaimStatus.UnderReview);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<InvalidClaimException>(() => claim.RequestInfo(OfficerId, question, Later));
+
+        Assert.Equal("An Info Request needs a question.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Fact]
+    public void Claimant_answers_the_open_Info_Request_which_returns_the_Claim_to_Under_Review()
+    {
+        var claim = InStatus(ClaimStatus.InfoRequested);
+        var answeredAt = Later.AddHours(2);
+
+        claim.ProvideInfo("Nobody was hurt.", answeredAt);
+
+        Assert.Equal(ClaimStatus.UnderReview, claim.Status);
+        Assert.Equal(answeredAt, claim.UpdatedAt);
+        var infoRequest = Assert.Single(claim.InfoRequests);
+        Assert.Equal(("Was anyone hurt?", "Nobody was hurt.", answeredAt), (infoRequest.Question, infoRequest.Answer, infoRequest.AnsweredAt));
+        Assert.False(infoRequest.IsOpen);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.UnderReview, "Info provided", answeredAt), (entry.Status, entry.Description, entry.OccurredAt));
+        var provided = Assert.IsType<InfoProvided>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, provided.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, answeredAt), (provided.ClaimId, provided.ClaimNumber, provided.Market, provided.OccurredAt));
+    }
+
+    [Fact]
+    public void Asking_again_after_an_answer_keeps_the_earlier_question_and_answer()
+    {
+        var claim = InStatus(ClaimStatus.InfoRequested);
+        claim.ProvideInfo("Nobody was hurt.", Later.AddHours(1));
+
+        claim.RequestInfo(OfficerId, "Can you send the police report number?", Later.AddHours(2));
+
+        Assert.Equal(ClaimStatus.InfoRequested, claim.Status);
+        Assert.Equal(
+            [("Was anyone hurt?", "Nobody was hurt."), ("Can you send the police report number?", null)],
+            claim.InfoRequests.Select(r => (r.Question, r.Answer)));
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.Submitted)]
+    [InlineData(ClaimStatus.UnderReview)]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Answering_with_no_open_Info_Request_is_refused(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.ProvideInfo("Nobody was hurt.", Later));
+
+        Assert.Equal("There is no open Info Request to answer.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
+    [Fact]
+    public void An_answered_Info_Request_cannot_be_answered_again()
+    {
+        var claim = InStatus(ClaimStatus.InfoRequested);
+        claim.ProvideInfo("Nobody was hurt.", Later);
+        claim.ClearEvents();
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.ProvideInfo("Actually, one passenger was.", Later));
+
+        Assert.Equal("There is no open Info Request to answer.", error.Message);
+        Assert.Equal("Nobody was hurt.", Assert.Single(claim.InfoRequests).Answer);
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Answering_without_an_answer_is_refused(string answer)
+    {
+        var claim = InStatus(ClaimStatus.InfoRequested);
+        var before = Snapshot(claim);
+
+        var error = Assert.Throws<InvalidClaimException>(() => claim.ProvideInfo(answer, Later));
+
+        Assert.Equal("An answer can't be empty.", error.Message);
+        Assert.Equal(before, Snapshot(claim));
+        Assert.Empty(claim.Events);
+    }
+
     // Reaches a status through the Claim's own methods, with OfficerId as the Assigned Officer and no
-    // events left over. Info Requested has no method yet (#7), so it is set the way EF Core does when it
-    // loads a row: through the private setter (D58).
+    // events left over. Info Requested leaves one open Info Request.
     private static Claim InStatus(ClaimStatus status)
     {
         var claim = Submit(Market.SG, new DateOnly(2026, 10, 28));
@@ -404,7 +552,7 @@ public class ClaimTests
         switch (status)
         {
             case ClaimStatus.InfoRequested:
-                typeof(Claim).GetProperty(nameof(Claim.Status))!.SetValue(claim, status);
+                claim.RequestInfo(OfficerId, "Was anyone hurt?", Later);
                 break;
             case ClaimStatus.Approved or ClaimStatus.Settled:
                 claim.SetReserve(OfficerId, 1500m, Later);
@@ -421,8 +569,9 @@ public class ClaimTests
     }
 
     // What a refused action must leave as it was. It must also raise no event.
-    private static (ClaimStatus, Guid?, decimal?, int) Snapshot(Claim claim) =>
-        (claim.Status, claim.AssignedOfficerId, claim.ReserveAmount, claim.History.Count);
+    private static (ClaimStatus, Guid?, decimal?, int, int, int) Snapshot(Claim claim) =>
+        (claim.Status, claim.AssignedOfficerId, claim.ReserveAmount, claim.History.Count,
+         claim.InfoRequests.Count, claim.InfoRequests.Count(r => r.IsOpen));
 
     private static Claim Submit(Market market, DateOnly incidentDate, long sequence = 1) =>
         Claim.Submit(ClaimantId, "POL-1", market, ClaimType.Motor, incidentDate, "Rear-ended at a junction", sequence, Now);

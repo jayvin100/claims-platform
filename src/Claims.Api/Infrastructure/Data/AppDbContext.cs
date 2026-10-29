@@ -83,6 +83,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             // History is saved through the Claim (its "_history" field); ClaimId is a database-only column.
             claim.HasMany(c => c.History).WithOne().HasForeignKey("ClaimId").IsRequired();
+            // Info Requests likewise, through "_infoRequests".
+            claim.HasMany(c => c.InfoRequests).WithOne().HasForeignKey("ClaimId").IsRequired();
             // Events are not columns; SaveChanges moves them to the outbox.
             claim.Ignore(c => c.Events);
         });
@@ -92,6 +94,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entry.ToTable("claim_history");
             entry.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
             entry.Property(e => e.Description).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<InfoRequest>(infoRequest =>
+        {
+            infoRequest.ToTable("info_requests");
+            infoRequest.Property(r => r.Question).HasMaxLength(1000);
+            infoRequest.Property(r => r.Answer).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<OutboxMessage>(message =>
