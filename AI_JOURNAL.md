@@ -827,3 +827,10 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **AI corrected two mix-ups:** it is the outbox table that keeps the message from being lost, not Kafka. Idempotency belongs to the readers, which skip a message they have already handled. The AI used Outlook's Outbox as the picture.
 - **My answer, in my own words (14:43):** "the api saves to the outbox first to prevent it from getting lost then a worker will eventually pick it up and send to kafka"
 - **Also merged:** the seven screenshots, plus a missing-space fix on the Officer's Info Request lines that the screenshot agent found (`764dd09`).
+
+## Entry #49 (Thu 29 Oct 14:45): rehearsal, part 2 — duplicates; a journal count corrected
+
+- **Question:** the worker might send the same note to Kafka twice. What stops two emails, or the Dashboard counting a Claim twice?
+- **My answer, in my own words (14:45):** "it gets a unique ID or identifiers with checks saying that it is already received and whatever coming in is a duplicate"
+- **AI's addition for the panel:** each event carries a unique event id. Each reader saves the ids it has handled (`processed_events`) in the same transaction as its own change, so a duplicate is recognised and skipped.
+- **Journal correction:** entry #19 calls its guessed time the "third today". It was the fourth: entry #4 (11:03 for 11:02), entry #17 (13:03 for 13:00, and 13:04 for 13:03), and entry #19 (13:08 for 13:07). A fifth came later, in entry #47 (14:39 for 14:38). The read-only agent gathering facts for the retro found this. Entry #19 is left as written and corrected here.
