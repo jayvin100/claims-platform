@@ -81,8 +81,8 @@ export const statusLabels: Record<ClaimStatus, string> = {
 
 /**
  * An amount written the way the API's Claim History writes it (D61): "SGD 1,000.005". Thousands
- * separators and at least two decimals, but never rounded: 20 is the most decimals allowed, more
- * than a JS number holds, so every digit the number has is shown.
+ * separators, at least two decimals and at most 20. Not exact: a JS number holds about 15 significant
+ * digits (D73), and anything past 20 decimals is rounded away, so a Reserve of 1e-28 shows as 0.00.
  */
 export function formatAmount(currency: string, amount: number): string {
   const digits = amount.toLocaleString('en-US', {

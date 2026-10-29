@@ -25,6 +25,7 @@ public class ClaimConcurrencyTests(ApiFactory factory) : IClassFixture<ApiFactor
 
         claimA.PickUp(Priya.Id, DateTimeOffset.UtcNow);
         claimB.PickUp(Marcus.Id, DateTimeOffset.UtcNow);
+        var winnerEventId = claimA.Events.Single().EventId; // read now: a successful save clears the events
         await dbA.SaveChangesAsync();
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => dbB.SaveChangesAsync());
@@ -33,6 +34,13 @@ public class ClaimConcurrencyTests(ApiFactory factory) : IClassFixture<ApiFactor
         var dbCheck = scopeCheck.ServiceProvider.GetRequiredService<AppDbContext>();
         var saved = await dbCheck.Claims.SingleAsync(c => c.Id == claimId);
         Assert.Equal(Priya.Id, saved.AssignedOfficerId);
+
+        // The losing save rolled back its outbox row too: only the winner's pick-up event is waiting.
+        var pickUpEvents = await dbCheck.OutboxMessages
+            .Where(m => m.ClaimId == claimId && m.Type == nameof(ClaimPickedUp))
+            .Select(m => m.EventId)
+            .ToListAsync();
+        Assert.Equal([winnerEventId], pickUpEvents);
     }
 
     private async Task<Guid> SaveSubmittedClaim()

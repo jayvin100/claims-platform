@@ -76,7 +76,7 @@ Notifications and Reporting never read the Claims tables. They only know what th
 
 **Idempotent consumers.** Delivery is at-least-once, so an event can arrive twice. Each consumer records the event ids it has processed, in the same transaction as its own changes, and skips any it has seen. It commits its Kafka offset only after that transaction succeeds.
 
-**Eventual consistency.** The Queue and Claim screens read live data. The Dashboard reads Reporting's read model, which lags the live data by a second or two. The screens poll every 5 seconds, so a change can take up to about 6 seconds to show on the Dashboard.
+**Eventual consistency.** The Queue and Claim screens read live data. The Dashboard reads Reporting's read model, which lags the live data by a second or two. The screens poll every 5 seconds, so while Kafka and the consumers are healthy, a change typically takes up to about 6 seconds to show on the Dashboard.
 
 **Identity** ([ADR-0006](docs/adr/0006-trusted-identity-headers.md)). There is no login. The role picker sends `X-User-Id` and `X-Role`, and the API trusts them. Every authorisation rule is still enforced by the API and tested.
 
@@ -94,6 +94,7 @@ The full reasoning for every choice, and what each was chosen over, is in the [d
 - A Kafka message that can't be read at all blocks Reporting's partition until it is fixed (Notifications logs it and moves on). Production would add a dead-letter topic.
 - Optimistic concurrency (`xmin`) catches two saves at the same time, not a stale screen. An Officer who approves from an old tab approves at the current Reserve. ETag and If-Match are the next step.
 - Extreme amounts (around 1e28) can overflow the Exposure sum and fail that endpoint.
+- After a Kafka broker restart, the outbox republished within about 2.5 seconds, but the consumers took about 45 seconds more to catch up. No events were lost. The cause is suspected (the consumer group rejoining under Kafka's default 45 s session timeout) but not confirmed, so the timeout was left unchanged; production would diagnose it and then tune it.
 - The outbox table only grows. Production would add a partial index on unsent rows and an archive job.
 
 ## Troubleshooting
