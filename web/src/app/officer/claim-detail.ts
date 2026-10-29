@@ -133,12 +133,12 @@ import { OfficerApi } from './officer-api';
           @for (request of claim.infoRequests; track $index) {
             <li>
               <p>
-                <strong>Asked {{ request.requestedAt | date: dateTimeFormat }}:</strong>
+                <strong>Question</strong> ({{ request.requestedAt | date: dateTimeFormat }}):
                 <span class="text">{{ request.question }}</span>
               </p>
               @if (request.answer !== null) {
                 <p>
-                  <strong>Answered {{ request.answeredAt | date: dateTimeFormat }}:</strong>
+                  <strong>Answer</strong> ({{ request.answeredAt | date: dateTimeFormat }}):
                   <span class="text">{{ request.answer }}</span>
                 </p>
               } @else {
