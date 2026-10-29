@@ -1039,3 +1039,11 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - The startup topics, the `dotnet tool restore` placement, the Dashboard caption, the Kafka-tests wording and the Reporting split caveat are corrected.
   - The D91 row was added.
   - I checked the diff; there was no separate review agent, because these were the reviewers' own wording.
+
+## Entry #60 (Thu 29 Oct 15:24): polling timeout merged (D92)
+
+- **Merged:** `cbc01f6` and `00177da`, pushed. The five polling screens add `timeout(4500)` inside the `switchMap` inner pipe. `problemMessage` shows "The server took too long to answer." for a `TimeoutError`, and the detail screens only treat a real HTTP 404 as not found. The README polling line says so. `ng build` passes. There are no Angular unit tests (a recorded scope cut).
+- **Review, Claude and Codex in parallel:** neither found a hard issue.
+  - Codex found nothing to fix. It also type-checked the change, and an in-memory RxJS run confirmed three things: timeouts surface as errors, polling continues afterwards, and a refresh still cancels an older GET.
+  - Claude made two comment points: action calls have no timeout, and the Dashboard's 4.5 s covers all three GETs. Both were added by the fixer.
+- **Next:** the overview page regenerates from this main with the final review's fixes, then /simplify.
