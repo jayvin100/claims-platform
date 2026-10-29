@@ -817,3 +817,13 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - the README and overview agents leave slots for the screenshots, the chart and the retro;
   - the lead updates GitHub at the end, once the docs links exist.
 - **Rehearsal:** the AI asks me the panel questions one at a time and records my answers in my own words.
+
+## Entry #48 (Thu 29 Oct 14:43): rehearsal, part 1 — the outbox
+
+- **First question:** walk through Settle to the Exposure drop, and why the outbox exists.
+- **My first reply:** I said honestly that I didn't know the terms (Officer, settle, Exposure, outbox, Kafka, ordering) and asked the AI to explain them.
+- **AI taught from scratch,** using things I already know: REST as a phone call, Kafka as a noticeboard (like Service Broker or MSMQ), the outbox as one SQL transaction across two tables, and `xmin` as SQL Server's `rowversion`.
+- **My second try:** "rest api sends the data but doesn't guarantee that it will stick. the kafka is introduces idempotency? more like permenant storage so it doesnt get lost and it "sticks" and gets queued and logged"
+- **AI corrected two mix-ups:** it is the outbox table that keeps the message from being lost, not Kafka. Idempotency belongs to the readers, which skip a message they have already handled. The AI used Outlook's Outbox as the picture.
+- **My answer, in my own words (14:43):** "the api saves to the outbox first to prevent it from getting lost then a worker will eventually pick it up and send to kafka"
+- **Also merged:** the seven screenshots, plus a missing-space fix on the Officer's Info Request lines that the screenshot agent found (`764dd09`).
