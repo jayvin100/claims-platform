@@ -109,7 +109,7 @@ Made while building the skeleton. Jay chose D38–D40 when asked. D41–D46 are 
 
 ## Ticket 02: Claimant submits and tracks a Claim (#4)
 
-D47–D53 are the AI's implementation calls, made without asking because they don't change an agreed decision; they are listed for Jay to review and override (AI_JOURNAL entry #13).
+D47–D53 are the AI's implementation calls, made without asking because they don't change an agreed decision; Jay reviewed them and accepted all seven (AI_JOURNAL entry #13).
 
 | # | Decision | Chosen over | Why |
 |---|---|---|---|

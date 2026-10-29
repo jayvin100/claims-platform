@@ -183,5 +183,5 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
     - `ClaimType` and `ClaimStatus` share one file.
 - **Smoke-checked** against the dev database: `CLM-ID-000001` was created with IDR; a future date returned a 400 problem-details response; Swagger lists the three endpoints.
 - **Result:** 42 tests pass (12 identity, 12 Claim, 18 HTTP), with 0 build warnings. Build time at commit: 1h42m of the 5h cap.
-- **Questions for me:** _(pending Jay)_ do I want to override any of D47–D53, especially D47 (Market time zones)?
+- **My decision (12:31):** accepted D47–D53 as proposed, with no overrides. My reason: I agree with the AI's reasoning on each one, and it makes sense.
 
