@@ -5,17 +5,17 @@ namespace Claims.Api.Notifications;
 
 /// <summary>
 /// Turns claim events into simulated emails to the Claimant: a notification log row plus a console line (D20).
-/// It only knows what the events tell it, never the Claims tables (ADR-0001). The delivery rules
-/// (own group, skip duplicates, commit after saving, retry on failure) are in <see cref="ClaimEventConsumer"/>.
+/// It only knows what the events tell it, never the Claims tables (ADR-0001). The delivery rules (own group,
+/// skip duplicates, commit after saving, retry on failure, dead-letter poison) are in <see cref="ClaimEventConsumer"/>.
 /// </summary>
 public class NotificationsConsumer(
     IServiceScopeFactory scopes, KafkaOptions kafka, TimeProvider time, ILogger<NotificationsConsumer> logger)
     : ClaimEventConsumer(scopes, kafka, time, logger)
 {
-    protected override string ConsumerName => "notifications";
+    /// <summary>The consumer group, and the name its processed event ids are recorded under.</summary>
+    public const string Name = "notifications";
 
-    // A missed email is better than holding up every later email on the partition.
-    protected override bool SkipUnreadable => true;
+    protected override string ConsumerName => Name;
 
     protected override Task<Action?> ApplyAsync(
         AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
@@ -23,11 +23,10 @@ public class NotificationsConsumer(
         var email = NotificationEmails.For(eventType, eventJson, now);
         if (email is null)
         {
-            // An unknown type is skipped (recorded as processed), not retried: a retry would block every Claim on
-            // its partition. NotificationEmailsTests fails for any event type that is neither mapped nor ignored.
+            // An unknown type goes to the dead-letter topic, not recorded as processed (D90), so the partition keeps
+            // moving. NotificationEmailsTests fails for any event type that is neither mapped nor ignored.
             if (!NotificationEmails.Ignored.Contains(eventType))
-                logger.LogWarning("{Consumer} has no email for unknown event type {EventType} {EventId}; skipped",
-                    ConsumerName, eventType, eventId);
+                throw new PoisonMessageException($"unknown event type {eventType}");
             return Task.FromResult<Action?>(null);
         }
 

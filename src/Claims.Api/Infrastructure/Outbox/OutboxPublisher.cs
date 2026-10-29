@@ -19,15 +19,8 @@ public class OutboxPublisher(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var config = new ProducerConfig(kafka.ClientConfig())
-        {
-            // Acknowledged only once the broker has stored the message, so "sent" really means stored.
-            Acks = Acks.All,
-            // Give up on a send after 10 s (the default is 5 minutes), so while Kafka is down the worker
-            // logs a warning and retries instead of waiting silently.
-            MessageTimeoutMs = 10_000,
-        };
-        using var producer = new ProducerBuilder<string, string>(config).Build();
+        // Waits for the broker to store each message, and gives up on a send after 10 s (see KafkaOptions).
+        using var producer = new ProducerBuilder<string, string>(kafka.ProducerConfig()).Build();
         using var timer = new PeriodicTimer(PollInterval, time);
 
         while (await timer.WaitForNextTickAsync(stoppingToken))

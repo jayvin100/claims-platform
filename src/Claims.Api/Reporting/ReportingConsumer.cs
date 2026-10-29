@@ -9,7 +9,7 @@ namespace Claims.Api.Reporting;
 /// <summary>
 /// Keeps the Reporting read model up to date from claim events: one row per Claim (D17). It only knows what the
 /// events tell it, never the Claims tables (ADR-0001). The delivery rules (own group, skip duplicates, commit
-/// after saving, retry on failure) are in <see cref="ClaimEventConsumer"/>.
+/// after saving, retry on failure, dead-letter poison) are in <see cref="ClaimEventConsumer"/>.
 /// </summary>
 public class ReportingConsumer(
     IServiceScopeFactory scopes, KafkaOptions kafka, TimeProvider time, ILogger<ReportingConsumer> logger)
@@ -32,13 +32,10 @@ public class ReportingConsumer(
     protected override async Task<Action?> ApplyAsync(
         AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
     {
+        // Sent to the dead-letter topic, not recorded as processed (D90). The totals miss this event until a person
+        // replays it, but the partition keeps moving. ReportingConsumerTests fails for any event type with no rule.
         if (!ClaimEventTypes.TryGetValue(eventType, out var type))
-        {
-            // Thrown, so the message is retried: it is not recorded as processed and its offset is not committed, so
-            // its partition stays blocked until a fix is deployed. For a read model, correct totals matter more than
-            // availability. This is a scoped exception to D68, which still applies to Notifications.
-            throw new InvalidOperationException($"{ConsumerName} has no rule for unknown event type {eventType} {eventId}");
-        }
+            throw new PoisonMessageException($"unknown event type {eventType}");
 
         var claimEvent = (ClaimEvent)JsonSerializer.Deserialize(eventJson, type, OutboxMessage.JsonOptions)!;
         var row = await db.ReportingClaims.FindAsync([claimEvent.ClaimId], stoppingToken);

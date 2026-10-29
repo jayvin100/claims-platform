@@ -1,7 +1,6 @@
 using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Outbox;
-using Claims.Api.Notifications;
 using Claims.Api.Reporting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -176,35 +175,8 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Equal(new OfficerWorkloadResponse(Marcus.Id, 0, 1, 0, 0, 0), workload.Officers.Single(o => o.OfficerId == Marcus.Id));
     }
 
-    [Fact]
-    public async Task An_unknown_event_type_throws_and_is_not_recorded_as_processed()
-    {
-        var eventId = Guid.NewGuid();
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Consumer().ProcessAsync(
-            "ClaimArchived", $$"""{ "eventId": "{{eventId}}", "claimId": "{{Guid.NewGuid()}}" }""", CancellationToken.None));
-
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.False(await db.ProcessedEvents.AnyAsync(p => p.Consumer == ReportingConsumer.Name && p.EventId == eventId));
-        Assert.Equal(0, await db.ReportingClaims.CountAsync());
-    }
-
-    // Q1 (a): a message that can't be decoded at all. Reporting retries it (D74); Notifications moves past it.
-    [Theory]
-    [InlineData("ClaimSubmitted", "not json")]
-    [InlineData("ClaimSubmitted", "{ }")]
-    [InlineData("", "{ }")]
-    public async Task An_unreadable_message_throws_in_Reporting_but_Notifications_skips_it(string eventType, string eventJson)
-    {
-        await Assert.ThrowsAsync<InvalidDataException>(() => Consumer().ProcessAsync(eventType, eventJson, CancellationToken.None));
-
-        var notifications = ActivatorUtilities.CreateInstance<NotificationsConsumer>(factory.Services);
-        await notifications.ProcessAsync(eventType, eventJson, CancellationToken.None); // returns, doesn't throw
-    }
-
-    // An event type Reporting has no rule for blocks its partition (see ReportingConsumer), so this test is what
-    // catches a new event type before it ships.
+    // An event type Reporting has no rule for goes to the dead-letter topic and is missing from the totals until
+    // someone replays it (D90), so this test is what catches a new event type before it ships.
     [Fact]
     public async Task Reporting_handles_every_event_type()
     {
@@ -220,7 +192,7 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
         // A new event type fails here until it is added to oneOfEach, and so is applied below.
         Assert.Equal(everyEventType.Order(), oneOfEach.Select(e => e.GetType().Name).Order());
 
-        await Apply(oneOfEach); // throws for any type Reporting has no rule for
+        await Apply(oneOfEach); // throws PoisonMessageException for any type Reporting has no rule for
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

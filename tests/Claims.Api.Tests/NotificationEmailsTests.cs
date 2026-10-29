@@ -72,7 +72,7 @@ public class NotificationEmailsTests
         Assert.Contains(claimEvent.GetType().Name, NotificationEmails.Ignored);
     }
 
-    // The consumer skips an unknown event type rather than retrying it, so this test is what catches a new
+    // The consumer sends an unknown event type to the dead-letter topic (D90), so this test is what catches a new
     // event that nobody mapped: every ClaimEvent type must either send an email or be on the ignored list.
     [Fact]
     public void Every_event_type_is_either_emailed_or_ignored()

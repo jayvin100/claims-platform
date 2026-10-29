@@ -11,8 +11,8 @@ namespace Claims.Api.Infrastructure.Kafka;
 /// Reads claim-events for one consumer (Notifications or Reporting) with the delivery rules both need
 /// (ADR-0004, ADR-0005, D16): its own consumer group; one message at a time; event ids it has already handled
 /// are skipped; the processed id is saved in the same transaction as the consumer's own rows; the Kafka offset
-/// is committed only after that; and a message that fails is retried, never skipped (the one exception is an
-/// unreadable message, see <see cref="SkipUnreadable"/>).
+/// is committed only after that; and a message that fails is retried, never skipped. The one exception is a poison
+/// message, which no retry could ever fix: it is copied to the dead-letter topic and the consumer moves on (D90).
 /// </summary>
 public abstract class ClaimEventConsumer(
     IServiceScopeFactory scopes, KafkaOptions kafka, TimeProvider time, ILogger logger) : BackgroundService
@@ -21,16 +21,10 @@ public abstract class ClaimEventConsumer(
     protected abstract string ConsumerName { get; }
 
     /// <summary>
-    /// What to do with a message that can't be decoded (no event type, bad JSON, no event id). False (the default):
-    /// throw, so it is retried like any failure and blocks its partition until fixed (D74). True: log a warning and
-    /// move past it. Nothing is recorded, since there is no event id to record.
-    /// </summary>
-    protected virtual bool SkipUnreadable => false;
-
-    /// <summary>
     /// Adds this consumer's rows for one event to <paramref name="db"/> without saving them. The caller saves
     /// them together with the processed event id, so both are stored or neither is. Returns anything that must
     /// happen only once they are saved (such as a console line), or null; the caller runs it after the save.
+    /// Throws <see cref="PoisonMessageException"/> for an event type the consumer doesn't handle.
     /// </summary>
     protected abstract Task<Action?> ApplyAsync(
         AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken);
@@ -51,6 +45,8 @@ public abstract class ClaimEventConsumer(
         };
         using var consumer = new ConsumerBuilder<string, string>(config).Build();
         consumer.Subscribe(KafkaOptions.Topic);
+        // Only used to send poison messages to the dead-letter topic.
+        using var deadLetters = new ProducerBuilder<string, string>(kafka.ProducerConfig()).Build();
 
         try
         {
@@ -60,9 +56,9 @@ public abstract class ClaimEventConsumer(
                 try
                 {
                     result = consumer.Consume(stoppingToken);
-                    await HandleAsync(result.Message, stoppingToken);
-                    // Only now is the event safely recorded, so only now does the group move past it.
-                    // If we crash before this line, Kafka redelivers the message and HandleAsync skips it.
+                    await HandleAsync(result, deadLetters, stoppingToken);
+                    // Only now is the event safely recorded (or dead-lettered), so only now does the group move past
+                    // it. If we crash before this line, Kafka redelivers the message and HandleAsync skips it.
                     consumer.Commit(result);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -71,9 +67,10 @@ public abstract class ClaimEventConsumer(
                 }
                 catch (Exception ex)
                 {
-                    // Anything else, including an OperationCanceledException from a timeout, is a failure.
-                    // The same message is retried until it succeeds. That blocks the rest of its partition, by
-                    // design: skipping it would lose the event, and moving past it would break the Claim's order.
+                    // Anything else, including an OperationCanceledException from a timeout, is a failure that may
+                    // pass: the database is down, or the dead-letter send failed. The same message is retried until
+                    // it succeeds. That holds up the rest of its partition, by design: skipping it would lose the
+                    // event, and moving past it would break the Claim's order.
                     logger.LogError(ex, "{Consumer} couldn't handle a message; retrying in {Delay}s",
                         ConsumerName, KafkaOptions.RetryDelay.TotalSeconds);
                     if (result is not null)
@@ -105,49 +102,95 @@ public abstract class ClaimEventConsumer(
         }
     }
 
-    private Task HandleAsync(Message<string, string> message, CancellationToken stoppingToken)
+    /// <summary>
+    /// Handles one Kafka message: applies it, or sends it to the dead-letter topic if it is poison. Returns once it is
+    /// safe to commit past the message; throws if it must be retried, including when the dead-letter send fails, so a
+    /// message is never lost. Public so tests can pass a fake producer, with no Kafka.
+    /// </summary>
+    public async Task HandleAsync(
+        ConsumeResult<string, string> result, IProducer<string, string> deadLetters, CancellationToken stoppingToken)
     {
+        var message = result.Message;
         string? eventType = message.Headers is not null && message.Headers.TryGetLastBytes(KafkaOptions.EventTypeHeader, out var bytes)
             ? Encoding.UTF8.GetString(bytes)
             : null;
-        return ProcessAsync(eventType, message.Value, stoppingToken);
-    }
-
-    /// <summary>Reads the event id, or returns false if the message can't be decoded at all.</summary>
-    private static bool TryReadEventId(
-        [NotNullWhen(true)] string? eventType, [NotNullWhen(true)] string? eventJson, out Guid eventId)
-    {
-        eventId = Guid.Empty;
-        if (string.IsNullOrEmpty(eventType) || eventJson is null)
-            return false;
         try
         {
-            using var json = JsonDocument.Parse(eventJson);
-            return json.RootElement.ValueKind == JsonValueKind.Object
-                && json.RootElement.TryGetProperty("eventId", out var id)
-                && id.ValueKind == JsonValueKind.String
-                && id.TryGetGuid(out eventId);
+            await ProcessAsync(eventType, message.Value, stoppingToken);
+        }
+        catch (PoisonMessageException ex)
+        {
+            await SendToDeadLetterTopicAsync(result, ex.Message, deadLetters, stoppingToken);
+        }
+    }
+
+    // Copies the message as it arrived (key, value and headers) and adds who sent it here, why, and where it came
+    // from, so a person can find the original and replay it. Nothing is recorded as processed, so a replayed copy
+    // is handled like a new event. If the process dies after this send but before the commit, the message is
+    // dead-lettered twice; both copies carry the same dlq-source.
+    private async Task SendToDeadLetterTopicAsync(
+        ConsumeResult<string, string> result, string reason, IProducer<string, string> deadLetters, CancellationToken stoppingToken)
+    {
+        var source = $"{result.Topic}/{result.Partition.Value}/{result.Offset.Value}";
+        var headers = new Headers();
+        foreach (var header in result.Message.Headers ?? [])
+            headers.Add(header.Key, header.GetValueBytes());
+        headers.Add(KafkaOptions.DeadLetterConsumerHeader, Encoding.UTF8.GetBytes(ConsumerName));
+        headers.Add(KafkaOptions.DeadLetterReasonHeader, Encoding.UTF8.GetBytes(reason));
+        headers.Add(KafkaOptions.DeadLetterSourceHeader, Encoding.UTF8.GetBytes(source));
+
+        // Awaited, so the caller commits only once Kafka has stored the dead letter. A failed send throws, and the
+        // message is retried in place like any other failure.
+        await deadLetters.ProduceAsync(KafkaOptions.DeadLetterTopic, new Message<string, string>
+        {
+            Key = result.Message.Key,
+            Value = result.Message.Value,
+            Headers = headers,
+        }, stoppingToken);
+        logger.LogWarning("{Consumer} sent {Source} to {DeadLetterTopic}: {Reason}",
+            ConsumerName, source, KafkaOptions.DeadLetterTopic, reason);
+    }
+
+    /// <summary>
+    /// Reads the event id, or throws <see cref="PoisonMessageException"/> with the reason if the message can't be
+    /// decoded. [NotNull] tells the compiler both arguments are non-null once it returns.
+    /// </summary>
+    private static Guid ReadEventId([NotNull] string? eventType, [NotNull] string? eventJson)
+    {
+        if (string.IsNullOrEmpty(eventType))
+            throw new PoisonMessageException("no event-type header");
+        if (string.IsNullOrEmpty(eventJson))
+            throw new PoisonMessageException("empty value");
+
+        JsonDocument json;
+        try
+        {
+            json = JsonDocument.Parse(eventJson);
         }
         catch (JsonException)
         {
-            return false;
+            throw new PoisonMessageException("not JSON");
+        }
+        using (json)
+        {
+            if (json.RootElement.ValueKind == JsonValueKind.Object
+                && json.RootElement.TryGetProperty("eventId", out var id)
+                && id.ValueKind == JsonValueKind.String
+                && id.TryGetGuid(out var eventId))
+                return eventId;
+            throw new PoisonMessageException("no event id");
         }
     }
 
     /// <summary>
     /// Handles one event once: skips it if this consumer already recorded its id, otherwise applies it and records
-    /// the id in one transaction. Public so tests can call it without Kafka.
+    /// the id in one transaction. Throws <see cref="PoisonMessageException"/>, having saved nothing, for a message
+    /// it can never handle. Public so tests can call it without Kafka.
     /// </summary>
     public async Task ProcessAsync(string? eventType, string? eventJson, CancellationToken stoppingToken)
     {
-        // Checked before the database, so only a decode failure can be skipped; database errors still retry.
-        if (!TryReadEventId(eventType, eventJson, out var eventId))
-        {
-            if (!SkipUnreadable)
-                throw new InvalidDataException($"{ConsumerName} can't read a message (event type '{eventType}')");
-            logger.LogWarning("{Consumer} skipped an unreadable message (event type '{EventType}')", ConsumerName, eventType);
-            return;
-        }
+        // Checked before the database, so a database error is never mistaken for poison: it still retries.
+        var eventId = ReadEventId(eventType, eventJson);
 
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -160,7 +203,17 @@ public abstract class ClaimEventConsumer(
         }
 
         var now = time.GetUtcNow();
-        var afterSave = await ApplyAsync(db, eventId, eventType, eventJson, now, stoppingToken);
+        Action? afterSave;
+        try
+        {
+            afterSave = await ApplyAsync(db, eventId, eventType, eventJson, now, stoppingToken);
+        }
+        catch (JsonException)
+        {
+            // Valid JSON with an event id, but its fields don't fit its event type (say, text where a number should
+            // be). No retry can fix that either.
+            throw new PoisonMessageException($"JSON doesn't fit {eventType}");
+        }
         db.ProcessedEvents.Add(new ProcessedEvent(ConsumerName, eventId, now));
         // One SaveChanges is one transaction: the consumer's rows and the processed id are stored together.
         await db.SaveChangesAsync(stoppingToken);

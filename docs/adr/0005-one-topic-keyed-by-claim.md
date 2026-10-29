@@ -7,3 +7,7 @@ The key only controls which partition a message lands on. End-to-end order also 
 ## Considered Options
 
 - **A topic per event type**: rejected. Events for the same Claim would sit on different topics with no ordering between them, so a consumer could see "settled" before "picked up".
+
+## Dead letters
+
+A message a consumer can never handle (unreadable, or an event type it doesn't know) is copied to a second topic, `claim-events-dlq`, and the consumer commits past it, so one bad message can't stall a partition (D90). Order is kept for every event that is applied; a dead-lettered event is missing until a person replays it, and then arrives out of order. Errors that may pass, such as the database being down, still retry in place.

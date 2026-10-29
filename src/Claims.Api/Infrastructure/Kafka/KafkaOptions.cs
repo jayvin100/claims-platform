@@ -10,8 +10,19 @@ public class KafkaOptions
     /// <summary>The one topic every domain event goes to, keyed by Claim id (ADR-0005).</summary>
     public const string Topic = "claim-events";
 
+    /// <summary>
+    /// Where a consumer puts a message it can't handle, so the main topic never stalls (D90). Kept for a person to
+    /// inspect and replay; nothing reads it automatically.
+    /// </summary>
+    public const string DeadLetterTopic = "claim-events-dlq";
+
     /// <summary>The message header that carries the event type, so a consumer knows how to read the JSON.</summary>
     public const string EventTypeHeader = "event-type";
+
+    /// <summary>Headers a dead letter carries on top of the original ones: who sent it there, why, and where it came from.</summary>
+    public const string DeadLetterConsumerHeader = "dlq-consumer";
+    public const string DeadLetterReasonHeader = "dlq-reason";
+    public const string DeadLetterSourceHeader = "dlq-source";
 
     /// <summary>
     /// Off switches off all Kafka work: topic creation, the outbox publisher and the consumers.
@@ -34,5 +45,15 @@ public class KafkaOptions
         BootstrapServers = BootstrapServers,
         BrokerAddressFamily = BrokerAddressFamily.V4,
         ReconnectBackoffMs = 1000,
+    };
+
+    /// <summary>The settings for every producer: the outbox publisher and the consumers' dead-letter sends.</summary>
+    public ProducerConfig ProducerConfig() => new(ClientConfig())
+    {
+        // Acknowledged only once the broker has stored the message, so "sent" really means stored.
+        Acks = Acks.All,
+        // Give up on a send after 10 s (the default is 5 minutes), so while Kafka is down the caller
+        // logs a warning and retries instead of waiting silently.
+        MessageTimeoutMs = 10_000,
     };
 }
