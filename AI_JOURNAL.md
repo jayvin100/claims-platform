@@ -884,3 +884,20 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
     - The consumer tree's checks need to follow the code's order.
     - The scope of the who-caught-what chart needs stating.
   - Both reviewers' fixes are going to the overview agent now. The README fixes go out with the D90 rebase.
+
+## Entry #54 (Thu 29 Oct 15:03): full review team planned for the final state
+
+- **Asked:** "after that i want you to dispatch a team of agents to review the HTML files and visualizers and docs and code basically the eeverything here. no limit on the amount of agents."
+- **AI's plan:** once D90, the README and the overview are merged, about 11 reviewers run in parallel on the final main.
+  - **Nine Claude agents, one area each:**
+    1. domain, REST and authorisation;
+    2. outbox, Kafka, consumers and the D90 dead-letter topic;
+    3. Reporting;
+    4. Angular;
+    5. tests;
+    6. README, ADRs, decisions and glossary;
+    7. `overview.html` accuracy, plus a visual check in a browser;
+    8. journal and process honesty;
+    9. a live fresh-clone run that follows the README.
+  - **Codex, two reviews in parallel:** the whole codebase, and the docs plus the HTML.
+  - **After the reviews:** fixers apply the findings, and any decision goes to a council or to me.
