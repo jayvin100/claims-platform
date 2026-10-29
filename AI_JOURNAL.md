@@ -308,3 +308,25 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Also:** `.claude/worktrees/` (the parallel agents' worktrees) is now git-ignored.
 - **AI slip (third today), fixed:** it wrote this entry's time in the same command that ran `date`, so the time was guessed again (13:08 instead of 13:07). From now on it runs `date` as a separate step before writing any time.
 
+## Entry #20 (Thu 29 Oct 13:08): ticket 08, Angular shell and role picker (#10, wave 1)
+
+- **Built by a wave-1 agent** in its own worktree (13:00–13:05):
+  - **Command:** `npx -y @angular/cli@22.2.5 new claims-web --directory web --routing --style css --ssr false --skip-git --skip-tests --ai-config none --defaults`. Angular 22.2 runs zoneless and has no test runner, because the spec excludes Angular tests. The packages are only what `ng new` installs (approved, entry #17).
+  - **What it is:** a role picker fed by `GET /api/users`; the chosen Demo User in a signal, saved to localStorage; one interceptor that adds `X-User-Id` and `X-Role` to API calls only; a guard per role; a "Switch user" button in the header; placeholder My Claims and Queue pages for #11 and #12.
+  - **Smoke check (agent):** curl and headless Chrome against the API on its own database. The picker listed 5 users, the CORS preflight allowed the identity headers, the guards redirected the wrong role, and a page request carried the headers (200).
+- **Bugs found and fixed:**
+  - **Agent:** the generated `tsconfig.spec.json` and `test` script pointed at a test runner that wasn't installed (removed). The generated README described commands that don't exist (trimmed). Its own slip: an empty user list would have shown "Loading users…" forever (fixed).
+  - **Codex, judgement call, a real bug:** a stored value that parses but isn't a whole user (say `{}`) passed the check, so the guards redirected `/queue` to `/queue` in a loop. The stored user's fields and role are now checked; anything else counts as "nobody chosen".
+  - **Codex, hard issue:** the role picker threw away the API's problem-details message. It now shows `detail` or `title`, and falls back to "Is the API running?" when nothing answered.
+  - **Claude spec review:** CORS was on in every environment, but the ticket says "in Development". `UseCors` now runs in Development only.
+  - **Claude standards review:** the README now says `npm start` (D25, not `npx ng serve`); `UsersApi.list()` declares its return type; the UI text no longer uses "login", a term the glossary says to avoid.
+- **Left as is:**
+  - The Claimant and Officer lists in the picker are two similar blocks; one loop would be harder for a newcomer to read.
+  - `noUserGuard` repeats two lines of `requireRole`.
+  - `homeFor(role)` keeps the route paths in `demo-user.ts`.
+  - The API address is a constant in `api.ts`.
+  - If a stored user stops matching the seed, every call gets 401 and the app doesn't send the user back to the picker. #11 and #12 show API errors in plain words and can handle it.
+- **Reviews:** Codex (2 findings), Claude standards (no hard issues, 7 judgement calls), Claude spec (1 finding). All three ran in parallel on the branch.
+- **Implementation calls:** the agent's six, plus `web/` as the folder (entry #18), go to the council (entry #19) together with #7's; the outcome goes in a later entry.
+- **Merged** to main by rebase and fast-forward. Result: 120 API tests pass, `ng build` is clean. Build time at merge: 2h20m of the 5h cap.
+
