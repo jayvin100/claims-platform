@@ -518,3 +518,23 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Dispatched:**
   - **#9's fixer:** D74 plus one list of event types, a duplicate test that replays a status change, the D77 glossary wording, the D73 comment, the comment fixes, and D76.
   - **#13's builder:** D75.
+
+## Entry #31 (Thu 29 Oct 13:42): ticket 07, Workload and Exposure read model (#9, wave 2)
+
+- **Built** as described in entry #29: a Reporting consumer, one row per Claim, and the two report endpoints. The reviews found no hard issues; their findings went to the wave-2 council (entry #30).
+- **Fixer agent (13:39–13:41) applied the council's decisions and the review fixes:**
+  - **D74:** an unknown event type now throws, is retried, and is not recorded. Its test checks all three.
+  - **Bug the standards review found, fixed:** the eight event types were listed twice (`EventTypes` and the `Apply` switch), so a type present in only one list would have blocked its partition forever. The `Apply` switch is now the only list, and a coverage test applies one event of each type.
+  - **Weak test found by the spec review, fixed:** the "same event twice counts once" test replayed ClaimSubmitted, which would pass even without the duplicate check. It now replays InfoRequested after InfoProvided, and fails if the check is removed.
+  - **D76:** ClaimSubmitted and ReserveSet set the row's currency. `Markets.CurrencyOf` is only the fallback. There is a new test.
+  - **D77:** the glossary's Workload wording now matches D17.
+  - **D73:** a comment on `reserveAmount` in `claims.ts`.
+  - **Comments:** the misleading `GroupBy` and constructor comments are corrected, and "seam-3" wording is gone from production code.
+- **Left, with the reason:**
+  - **The fixer's own doubt:** the old-duplicate test may also pass because of the unique key on (consumer, event id). The lead has not checked this. Either way the test still proves an old duplicate can't bring the Reserve back.
+  - The Reporting row has no concurrency token. That is safe only while one partition holds each Claim (ADR-0005).
+  - Reporting tests depend on running one at a time in their own collection.
+  - `ReportingTestData` sits inside a test file.
+- **Result:** 183 tests pass, and `ng build` is clean. Merged to main by rebase and fast-forward (`967df2b`, `900e296`). Build time at merge: 2h54m of the 5h cap.
+- **#13 (Dashboard)** is built and under review. Its builder found that `3698db9` predated `claims.ts`, so it cherry-picked #9 onto main itself.
+- **Review deviation, logged:** for time, #13 gets one Claude agent covering both spec and standards instead of two, plus Codex as usual.
