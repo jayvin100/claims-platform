@@ -392,3 +392,36 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Production code:** unchanged for D66.
 - **Review:** no separate review agents. Both changes were specified line by line by the council, and the lead read the interceptor diff before merging.
 - **Result:** 155 tests pass; `ng build` is clean. Merged to main by rebase and fast-forward (`1e7ec47`). Build time: 2h36m of the 5h cap.
+
+## Entry #26 (Thu 29 Oct 13:28): ticket 06, Kafka publisher and notifications (#8, wave 1)
+
+- **Built by a wave-1 agent** in its own worktree, test-first:
+  - **Setting:** `Kafka:Enabled`.
+  - **Topic:** `claim-events` (3 partitions), created at startup in Development only.
+  - **Outbox publisher:** sends unsent rows in sequence order (key = Claim id, event type in a header), then marks them sent.
+  - **Consumers:** a shared `ClaimEventConsumer` base that commits offsets only after the database transaction, and rewinds and retries on failure. `NotificationsConsumer` writes a simulated email (a console line plus a `notification_log` row) and the processed event id in one transaction, so a duplicate never sends a second email.
+  - **Emails:** `NotificationEmails` is pure, with unit tests.
+  - **Package:** Confluent.Kafka 2.16.0 (approved, entry #18).
+- **Bugs found by the agent and fixed:**
+  - IPv6 `localhost` stalled the client, so it connects over IPv4.
+  - The reconnect backoff is now 1 second.
+  - EF's per-command logging flooded the console every poll, so EF commands now log at Warning.
+- **Reviews** (Claude spec, Claude standards and Codex, in parallel):
+  - **Codex, hard issue:** the email line was printed before the database commit, so a retry after a failed save printed it twice. Fixed: it prints only after the save succeeds, and only for a newly processed event.
+  - **Codex, judgement call:** publish order is per Claim, not global. Sent to the council and accepted (D69), with a comment in the code.
+  - **Claude spec, hard issue:** the InfoRequested email was missing, and `_ => null` silently marked such events processed. Fixed by adding the email with two tests. The council chose the policy for events with no email or of unknown type (D68): an explicit ignored list (ReserveSet and InfoProvided), a warning for unknown types, and a test that every event type is either emailed or ignored.
+  - **Claude standards and spec:**
+    - A new topic could go unseen for minutes, so topic metadata now refreshes every 5 s.
+    - An `OperationCanceledException` not caused by shutdown could stop the host; now only the stopping token ends the loops.
+    - The publisher and the rewind logged only `ex.Message`; they now log the exception.
+    - `RetryDelay` was defined twice, so there is now one, on `KafkaOptions`.
+    - Comments now say that ordering is per Claim and that a failing message blocks its partition on purpose.
+  - **Left as is:** the console name "SimulatedEmail" versus the `notification_log` table name; `OutboxMessage.JsonOptions` made public for consumers.
+- **Fixer agent:** applied the fixes above, rebased onto main twice and regenerated the migration (`NotificationsAndProcessedEvents`) after #7's. Its own slips: its test database still held the pre-rebase migration (it dropped that database, its own only), and the rewind logging was fixed too.
+- **Live check** (fixer, Kafka on): one Claim went from submit to settle through Info Request and answer.
+  - 7 events were published.
+  - Exactly 5 email lines and 5 `notification_log` rows (none for ReserveSet or InfoProvided).
+  - 7 `processed_events` rows.
+  - After rewinding the consumer group 7 messages and restarting, every event was skipped as already processed, with no new emails.
+- **Result:** 166 tests pass. Merged to main by fast-forward (`1eff56a`..`f5348ff`). Build time at merge: 2h40m of the 5h cap.
+- **Next:** #9 (the read model) launched at 13:28 in its own worktree (`claims_t9`, port 5209), now that #7 and #8 are on main.
