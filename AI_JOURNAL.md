@@ -21,7 +21,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 13:00 | 13:23 | Wave 1 in parallel: #7, #8, #10 built in worktrees; reviews by two Claude agents plus Codex; #10 and #7 merged; wave-1 council |
 | 13:23 | 13:48 | Waves 2 and 3: #8, #9, #11, #12, #13 merged with reviews and fixers; wave-2 council; #14 README and fresh-clone check |
 | 13:48 | 13:59 | 3h warning to Jay; final whole-repo review, final council, fixes, live check, worktree cleanup |
-| 14:05 | | Independent verification (fresh clone, two acceptance audits); gaps closed; council on D41–D46 |
+| 14:05 | 14:24 | Independent verification (fresh clone, two acceptance audits); gaps closed; councils on D41–D46 and final approval; approval conditions applied |
 
 ---
 
@@ -733,4 +733,18 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - **Done by a fixer (next entry):** the two README lines.
   - **Mine:** explain in my own words the council delegation, the outbox and per-Claim ordering, D65, D74 against D79, D80 and D87. The council and the AI must not write these for me or back-fill them into the journal.
 - **Nice-to-haves also given to the fixer:** correct a "never rounded" comment in `claims.ts`, and assert in the `xmin` test that the losing save writes no outbox row.
+
+## Entry #42 (Thu 29 Oct 14:24): approval conditions applied; build complete
+
+- **Fixer agent (`2f1fbde`):**
+  - **README eventual consistency:** now reads "while Kafka and the consumers are healthy, a change typically takes up to about 6 seconds".
+  - **README known limits:** a new D88 line on the 45 s catch-up after a broker restart.
+  - **`claims.ts`:** the comment no longer claims amounts are "never rounded", and it points to D73.
+  - **Concurrency test:** the two-context `xmin` test now also checks that the losing save wrote no outbox row.
+- **Lead:** merged by fast-forward, removed the worktree, and ran the suite on main: 188 pass.
+- **State:**
+  - All of #3–#14 are closed with every acceptance box ticked.
+  - The approval council's two document conditions are met.
+  - The third condition is mine: explain the listed decisions in my own words before the panel.
+- **Build time:** 3h36m of the 5h cap, 10:48 to 14:24.
 
