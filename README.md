@@ -22,7 +22,7 @@ Domain terms mean what [GLOSSARY.md](GLOSSARY.md) says.
     <td><img src="docs/screenshots/06-officer-claim-detail.png" alt="Officer Claim detail" width="400"><br>Officer's Claim: Reserve, Info Request and decisions</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/07-dashboard.png" alt="Dashboard" width="400"><br>Dashboard: Workload and Exposure per Market</td>
+    <td><img src="docs/screenshots/07-dashboard.png" alt="Dashboard" width="400"><br>Dashboard: Team Workload per Officer; Exposure (outstanding Claims) per Market</td>
     <td></td>
   </tr>
 </table>
@@ -41,9 +41,10 @@ From the repo root; one terminal per long-running command.
 
 ```sh
 docker compose up -d --wait          # Postgres on 5433, Kafka on 9092
-dotnet tool restore                  # local dotnet-ef tool
 dotnet run --project src/Claims.Api  # the API
 ```
+
+To add a migration you need the local dotnet-ef tool: `dotnet tool restore`. Running the app doesn't; startup applies migrations.
 
 ```sh
 cd web
@@ -57,7 +58,7 @@ npm start                            # the Angular app
 | The API | http://localhost:5169 |
 | Swagger UI | http://localhost:5169/swagger |
 
-In Development, startup applies migrations, seeds five demo users and creates the topic `claim-events`. Kafka is on by default (`Kafka:Enabled` in `src/Claims.Api/appsettings.json`). If Kafka is down, REST still works and Kafka is retried.
+In Development, startup applies migrations, seeds five demo users and creates the topics `claim-events` and `claim-events-dlq`. Kafka is on by default (`Kafka:Enabled` in `src/Claims.Api/appsettings.json`). If Kafka is down, REST still works and Kafka is retried.
 
 **Swagger:** call `GET /api/users`, then **Authorize** with a user's `id` as `X-User-Id` and `role` as `X-Role`. Every other endpoint needs both.
 
@@ -263,7 +264,7 @@ flowchart TD
     retry -.-> msg
 ```
 
-Poison (missing or null required fields, a null event-type header, an unknown type) is never recorded as processed, so nothing stalls and a replayed copy counts as new.
+Poison (missing or null required fields, a null event-type header, an unknown type, values the database can't store such as an unknown Market or a currency that isn't 3 letters) is never recorded as processed, so nothing stalls and a replayed copy counts as new.
 
 ### Eventual consistency and identity
 
@@ -295,17 +296,17 @@ Policy Numbers are typed in and not verified (D8).
 |-------|--------|----------------|
 | UI amounts (D73) | JavaScript numbers: exact to about 15 significant digits. API, database and Claim History are exact | |
 | Topic creation | `claim-events` and `claim-events-dlq` are created in Development only; elsewhere they must exist | |
-| Dead letters (D90) | A message a consumer can't read, or whose event type it doesn't know, is copied to `claim-events-dlq` and the consumer moves on. Headers say which consumer sent it, why, and where it came from; each consumer sends its own copy. Until it is replayed by hand, Reporting's totals miss that event. A late replay can move Reporting's row back to an older status: check the Claim's current state first, or rebuild the row from its events in order | Automated replay (next) |
+| Dead letters (D90) | A message a consumer can't read, or whose event type it doesn't know, is copied to `claim-events-dlq` and the consumer moves on. Headers say which consumer sent it, why, and where it came from; each consumer sends its own copy. Until it is replayed by hand, Reporting's totals miss that event. To replay, fix the cause (deploy the handler or correct the payload), then produce the message back onto `claim-events` with its key and `event-type` header; a consumer that already handled it skips it by event id. A late replay can move Reporting's row back to an older status or Reserve: check the Claim's current state first, or rebuild the row from its events in order | Automated replay (What's next) |
 | Stale screen (D80) | `xmin` catches simultaneous saves, not a stale screen: an old tab approves at the current Reserve | ETag and If-Match |
 | Extreme amounts (D82) | Around 1e28, the Exposure sum can overflow and fail | |
 | Broker restart (D88) | Outbox republished in about 2.5 s; consumers took about 45 s more. Nothing lost. Suspected, unconfirmed cause: the group rejoining under the default 45 s session timeout, so it stays unchanged | Diagnose, then tune |
 | Outbox growth (D83) | The table only grows | Partial index on unsent rows, archive job |
 | Claimant sees the Reserve (D65) | By design: one Claim shape for both roles | |
 
-Inspect the dead letters:
+Inspect the dead letters (Ctrl+C to stop):
 
 ```sh
-docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic claim-events-dlq --from-beginning --property print.headers=true
+docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic claim-events-dlq --from-beginning --formatter-property print.headers=true --formatter-property print.key=true
 ```
 
 ## Troubleshooting
@@ -330,17 +331,19 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-s
 | Reporting | Time-based measures, such as average time to settle |
 | Updates | Server push (SSE or SignalR); the UI polls |
 | Delivery | Containers, deployment, CI |
-| Tests | Angular tests, automated tests of the Kafka adapters |
+| Tests | Angular tests; automated tests of the Kafka consume, commit and rewind loop, `OutboxPublisher` and `KafkaTopicCreator`, all checked by hand (D87). `DeadLetterTests` does drive the consumers' `HandleAsync`, with a fake producer |
 | Structure | A project per module; any service split |
 
 ## What's next
 
-1. **Split out Reporting first.** It has its own tables and only hears events, so it moves to its own service and database without touching Claims.
-2. Real login (OIDC/JWT): the API's authentication scheme and `CurrentUser` change, and so do the Angular role picker and identity interceptor.
+1. **Split out Reporting first.** It has its own tables and only hears events, so it moves to its own service and database. First the event contracts (`ClaimEvent`, `ClaimStatus`, `Market`; D76) and the shared consumer base move into a shared contracts project; Claims' behaviour is untouched.
+2. Real login (OIDC/JWT): Program.cs swaps the authentication scheme; `CurrentUser` keeps reading the signed-in user (it may need a claim mapping); controllers and authorisation rules stay; the Angular role picker and identity interceptor become a login flow.
 3. A Manager role, with reassignment of Claims.
 4. Server push (SSE) instead of polling.
-5. Policy lookup against the policy administration system.
-6. Containers, CI and deployment.
+5. Automated dead-letter replay (D90).
+6. ETag and If-Match, so a stale screen can't approve at a changed Reserve (D80).
+7. Policy lookup against the policy administration system.
+8. Containers, CI and deployment.
 
 ## How it was built
 

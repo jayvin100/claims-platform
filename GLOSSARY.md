@@ -13,7 +13,7 @@ A member of claims staff who picks up, assesses and decides Claims.
 _Avoid_: Adjuster, handler, agent, staff member
 
 **Assigned Officer**:
-The Officer who picked up a Claim. Only they can act on it from then on.
+The Officer who picked up a Claim. From then on only they can set its Reserve, request info, approve, reject or settle it; the owning Claimant can still answer an Info Request. Pick-up checks only the status.
 _Avoid_: Owner, handler
 
 **Demo User**:

@@ -6,4 +6,4 @@ The backend is one ASP.NET Core API with three modules. **Claims** owns the Clai
 
 - **A service per module (microservices)**: rejected for now. It adds deployment, networking, service discovery and cross-service data questions without changing any behaviour the brief asks for, and it would eat time better spent on the domain rules.
 - **Claims / Assessment / Reporting modules** (the first draft): rejected. Claimant actions and Officer assessment both change the same Claim, so an Assessment module would split one entity's rules across two modules and make the seam fake.
-- **Separate projects per module**, so the compiler enforces the boundaries: deferred. Folders in one project are enough at this size; it's listed under what's next.
+- **Separate projects per module**, so the compiler enforces the boundaries: deferred. Folders in one project are enough at this size; it's listed under What was left out in the README.

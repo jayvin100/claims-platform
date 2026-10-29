@@ -9,8 +9,9 @@ namespace Claims.Api.Infrastructure.Identity;
 
 /// <summary>
 /// The only code that reads X-User-Id and X-Role (ADR-0006). It turns valid headers into a normal
-/// ASP.NET Core user, so swapping to real login means registering AddJwtBearer instead of this
-/// scheme in Program.cs; controllers and CurrentUser stay the same.
+/// ASP.NET Core user. With real login (JWT), Program.cs swaps this scheme for AddJwtBearer; CurrentUser keeps
+/// reading the signed-in user (it may need a claim mapping); controllers and authorisation rules stay; the
+/// Angular role picker and identity interceptor become a login flow.
 /// </summary>
 public class DemoHeaderAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
