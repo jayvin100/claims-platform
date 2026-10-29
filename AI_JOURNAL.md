@@ -748,3 +748,10 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - The third condition is mine: explain the listed decisions in my own words before the panel.
 - **Build time:** 3h36m of the 5h cap, 10:48 to 14:24.
 
+
+## Entry #43 (Thu 29 Oct 14:29): my reason for using councils
+
+- **My reason (14:29), in my words:** "more inputs from different models are better because each models and their training set/data is different."
+- **This answers** the first part of the approval council's condition (D89): why I delegated decisions to councils of Claude and Codex agents.
+- **I also asked** whether the other items in that condition were recorded, and if not, to send them to a council. These items were: per-Claim ordering through the outbox, D65, D74 versus D79, D80 and D87.
+- **AI's answer:** the decisions and their reasons are already recorded: D65, D69 and D84, D74 and D79, D80, and D87. What the approval council asked for is something else: me explaining them in my own words before the panel. A council can't supply that, and the approval council said nobody should write those reasons for me. So the AI did not send them to a council. It offered to walk me through each one instead.
