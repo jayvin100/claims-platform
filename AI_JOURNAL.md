@@ -1,7 +1,7 @@
 # AI Working Journal
 
 A running log of what I asked the AI, what it proposed, and what I accepted, challenged or overrode.
-Times come from `date` on my machine (+08). The full opening prompt is in [docs/agent-prompt.md](docs/agent-prompt.md).
+Written by the lead AI session in my voice; my own words are the parts in quotes. Times come from `date` on my machine (+08). The full opening prompt is in [docs/agent-prompt.md](docs/agent-prompt.md).
 
 ## Time log
 
@@ -22,6 +22,10 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 13:23 | 13:48 | Waves 2 and 3: #8, #9, #11, #12, #13 merged with reviews and fixers; wave-2 council; #14 README and fresh-clone check |
 | 13:48 | 13:59 | 3h warning to Jay; final whole-repo review, final council, fixes, live check, worktree cleanup |
 | 14:05 | 14:24 | Independent verification (fresh clone, two acceptance audits); gaps closed; councils on D41–D46 and final approval; approval conditions applied |
+| 14:24 | 14:38 | My reason for councils; visual docs chosen (README plus `docs/overview.html`); walkthrough direction; skills showcase; last improvements chosen (#43–#47) |
+| 14:38 | 14:58 | Rehearsal parts 1–5 (#48–#52); 4h warning given in chat at 14:47; I override D74/D79 with a dead-letter topic (D90); docs and D90 builders running |
+| 14:58 | 15:10 | 4h warning recorded late; reviews of D90 and the docs; D90, the README and the overview merged (#53–#57) |
+| 15:10 | 15:17 | Final review team: 9 Claude reviewers plus 2 Codex reviews; journal fixes; fixers started (#58). 4h29m of 5h used |
 
 ---
 
@@ -193,7 +197,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Result:** 42 tests pass (12 identity, 12 Claim, 18 HTTP), with 0 build warnings. Build time at commit: 1h42m of the 5h cap.
 - **My decision (12:31):** accepted D47–D53 as proposed, with no overrides. My reason: I agree with the AI's reasoning on each one, and it makes sense.
 
-## Entry #14 (Thu 29 Oct 12:39): ticket 03, Officer Queue and pick-up (#5, `/implement`)
+## Entry #14 (Thu 29 Oct 12:38): ticket 03, Officer Queue and pick-up (#5, `/implement`)
 
 - **Asked:** `/implement 5`: test-first, review, commit and push.
 - **AI built, test-first at the agreed seams:**
@@ -214,7 +218,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Result:** 59 tests pass (12 identity, 19 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up), with 0 build warnings. Build time at commit: 1h51m of the 5h cap.
 - **My decision (12:39):** accepted D54–D59 as proposed, with no overrides. My reason: I agree with the AI's decisions; they make sense.
 
-## Entry #15 (Thu 29 Oct 12:44): Codex joins every code review
+## Entry #15 (Thu 29 Oct 12:43): Codex joins every code review
 
 - **Asked:** dispatch an agent to work out how to call Codex from the CLI with GPT 6.1 Sol, high reasoning and fast mode, and have it review #5 alongside the usual Claude review agents. Then I made it a rule: until all tickets are done, every review that uses Claude agents must also run Codex, and the results must be recorded.
 - **AI did:**
@@ -239,7 +243,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Result:** 59 tests pass, with 0 build warnings. Build time at commit: 1h56m of the 5h cap.
 - **Jay's correction (12:46):** run Codex as `codex --model gpt-6.1-sol -c model_reasoning_effort="high" -c service_tier="fast" "<prompt>"`. The AI pointed out that this form opens Codex's interactive UI, which its agents can't drive without a terminal. **I chose** to keep my flags but run them through `codex exec`, with a read-only sandbox and the review saved to a file. `docs/agents/codex-review.md` is updated.
 
-## Entry #16 (Thu 29 Oct 12:58): ticket 04, Officer assesses and decides (#6, `/implement`)
+## Entry #16 (Thu 29 Oct 12:57): ticket 04, Officer assesses and decides (#6, `/implement`)
 
 - **Asked:** `/implement 6`: test-first, review (Claude agents plus Codex), commit and push. During the work I added a rule: log every bug found and how it was fixed, for every ticket from now on (now in AGENTS.md).
 - **AI built, test-first at the agreed seams:**
@@ -538,7 +542,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - Reporting tests depend on running one at a time in their own collection.
   - `ReportingTestData` sits inside a test file.
 - **Result:** 183 tests pass, and `ng build` is clean. Merged to main by rebase and fast-forward (`967df2b`, `900e296`). Build time at merge: 2h54m of the 5h cap.
-- **#13 (Dashboard)** is built and under review. Its builder found that `3698db9` predated `claims.ts`, so it cherry-picked #9 onto main itself.
+- **#13 (Dashboard)** is built and under review. Its builder found that `3698db9` predated `claims.ts`, so it cherry-picked #9 onto main itself. (`3698db9` was a worktree commit and never reached main.)
 - **Review deviation, logged:** for time, #13 gets one Claude agent covering both spec and standards instead of two, plus Codex as usual.
 
 ## Entry #32 (Thu 29 Oct 13:45): ticket 11, Dashboard (#13, wave 3)
@@ -736,7 +740,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 
 ## Entry #42 (Thu 29 Oct 14:24): approval conditions applied; build complete
 
-- **Fixer agent (`2f1fbde`):**
+- **Fixer agent (`2f1fbde` in its worktree; `1d70043` on main):**
   - **README eventual consistency:** now reads "while Kafka and the consumers are healthy, a change typically takes up to about 6 seconds".
   - **README known limits:** a new D88 line on the 45 s catch-up after a broker restart.
   - **`claims.ts`:** the comment no longer claims amounts are "never rounded", and it points to D73.
@@ -864,7 +868,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 ## Entry #53 (Thu 29 Oct 15:01): 4h warning recorded; reviews of the docs and of D90
 
 - **4h warning:** the AI warned me in chat at 14:47, with 1h left until 15:48, but didn't write it in the journal at the time. The Claude docs reviewer caught the gap, so it is recorded here.
-- **D90 builder (`384f737`, not yet merged):**
+- **D90 builder (`384f737`, not yet merged; on main as `280944e`):**
   - **What it built:** a dead-letter topic `claim-events-dlq`; one shared poison path for both consumers; the offset is committed only after the dead-letter send is acknowledged; a failed send retries; database errors still retry in place. 192 tests pass.
   - **Live check:** a garbled message and an unknown-type message each landed on the dead-letter topic once per consumer, and a new Claim flowed through right after.
   - **Bugs it found and fixed:** the topic creator retried forever when one topic existed and the other didn't; JSON in the wrong shape for its type retried forever and now goes to the dead-letter topic. The reviewer judged the second fix to be within D90's "can't read".
@@ -904,7 +908,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 
 ## Entry #55 (Thu 29 Oct 15:06): D90 merged with its review fixes; /simplify queued
 
-- **Merged:** `384f737` and `c1da0cb` were rebased onto main and fast-forwarded. 196 tests pass on main; pushed.
+- **Merged:** `384f737` and `c1da0cb` were rebased onto main (now `280944e` and `7eb6ab1`) and fast-forwarded. 196 tests pass on main; pushed.
 - **D90 review findings, Claude and Codex, and what the fixer did:**
   - **Missing fields read as nulls** (both reviewers; Codex showed a `ClaimSubmitted` holding only `eventId`): events are now read in one place, `ClaimEventConsumer.ReadEvent`, with `RespectRequiredConstructorParameters` and `RespectNullableAnnotations` on. Missing, null and wrong-type fields go to the dead-letter topic. Tests cover all three; with the settings off, the missing and null cases fail.
   - **Ignored types skipped the type check** (Codex: a `ReserveSet` with `"claimId":5` was recorded as processed): ignored types are now read and checked before being recorded. Tested.
@@ -960,3 +964,48 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
   - nothing pins D60's "403 before 409";
   - nothing pins "409 before the domain 400".
   These go to the fixer batch.
+
+## Entry #58 (Thu 29 Oct 15:17): final review results; journal corrected
+
+- **Final review team, all 11 reviewers on main (9 Claude, 2 Codex):** the overview reviewer is still running.
+- **Confirmed by four reviewers (Claude Kafka, Reporting and tests, plus Codex) — HARD:**
+  - **The problem:** D90's "nothing stalls" still has a gap. JSON that reads cleanly but holds a value the database can never store is retried forever. Examples: `"market": 99`, a currency `"SGDXX"`, an over-long claim number. Only a hand-made or replayed message can carry one.
+  - **Fix:** a fixer is making these poison and adding them to the dead-letter tests. This is within D90's "JSON that doesn't fit", so no council.
+- **Same fixer, test gaps:**
+  - nothing pins D60's "403 before 409" or "409 before the domain 400" (domain and tests reviewers);
+  - nothing proves a database error is retried rather than dead-lettered (tests reviewer);
+  - the Notifications module README still says unknown types are skipped (tests reviewer, HARD);
+  - one misleading test name, and one snapshot that leaves out `UpdatedAt`.
+- **Docs fixer (Claude docs, Reporting, tests and live-run reviewers, plus Codex docs):**
+  - D68, D74 and D79 are not marked superseded by D90;
+  - the README, ADR-0006 and two code comments give three different answers to "what changes for a real login";
+  - GLOSSARY and ADR-0006 say only the Assigned Officer can act, but the Claimant can still answer;
+  - "listed under what's next" points at items that aren't there;
+  - the dead-letter limit should say "older status or Reserve" and give the replay steps;
+  - the README says one topic is created, not two;
+  - `dotnet tool restore` isn't needed to run the app;
+  - a caption calls Workload per Market;
+  - the README undersells the Kafka tests;
+  - "split out Reporting without touching Claims" needs the shared-contracts caveat.
+- **Overview page (Codex docs):** `processed_events` is labelled "one row per consumer"; it is one row per consumer and event. This goes to the overview fix after the docs merge.
+- **Going to a council:**
+  - **Answering from a stale tab (Codex, HARD):** an answer from an old tab carries no Info Request id, so it can close a newer question. This is the Claimant side of D80.
+  - **Slow polling (Codex HARD, Claude Angular JUDGEMENT):** if a response takes longer than 5 s, every poll cancels the last and the screen never loads. The options are `exhaustMap`, a `timeout`, or a recorded limit.
+- **Left for /simplify, from the Angular reviewer's judgement calls:** the `notFound` Subject, the three-mechanism Market field on Report a Claim, the shared component selector, `role="alert"` on errors, and an empty `<th>`.
+- **Live fresh-clone run passed:** both journeys in the real UI, all 5 emails, the Dashboard dropping within 5 s of settle, 401/404/409 as documented, and dead letters landing in `claim-events-dlq` with the next Claim flowing straight through.
+- **Journal reviewer findings, fixed here by the lead:**
+  - **Guessed times, the full count.** Entry #49 counted five. The full list is 11 wrong times across 10 entries:
+    - entry #4: 11:03 for 11:02;
+    - entry #11: 12:02 for 12:01, corrected in `d99a542` with no note until now;
+    - entries #14, #15 and #16: 12:39, 12:44 and 12:58, each later than the commit that wrote it (12:38:43, 12:43:23, 12:57:03). Corrected here to the commit's minute, never noted before;
+    - entry #17: 13:03 for 13:00, and 13:04 for 13:03;
+    - entry #19: 13:08 for 13:07;
+    - entry #47: 14:39 for 14:38;
+    - entry #51: 14:49;
+    - entry #54: 15:03 for 15:02, corrected in `df3ae91` with no note until now.
+  - **Hashes not on main:** `2f1fbde`, `384f737` and `c1da0cb` now give their hashes on main (`1d70043`, `280944e`, `7eb6ab1`). `3698db9` is marked as a worktree commit.
+  - **Time log:** it stopped at 14:24; rows added to 15:17.
+  - **Whose voice:** a header line now says the lead AI writes in my voice and my own words are the parts in quotes.
+  - **Unreviewed code commits:** `a2eba4a` (#40), `1d70043` (#42) and `764dd09` (#48) had no separate review at the time. The final review team covers them.
+  - **Entry #33's open doubt:** the fixer couldn't confirm the old-duplicate test. The Reporting and tests reviewers have now confirmed it: an old redelivery does not bring a Reserve back.
+- **Open, and needs me:** approval condition (3) of D89, rehearsing in my own words. Still not rehearsed: per-Claim ordering (D69/D84) and D87. My D80 answer described a double approve rather than a stale tab, and there's no retry on record.
