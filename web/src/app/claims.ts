@@ -5,6 +5,23 @@ import { HttpErrorResponse } from '@angular/common/http';
 // (src/Claims.Api/Claims/ClaimContracts.cs, D27). Enums travel as their names; dates as ISO strings.
 
 export type Market = 'SG' | 'MY' | 'HK' | 'TH' | 'ID' | 'PH';
+
+/**
+ * The six Markets (D7), with the name and currency people see, and the time zone whose date
+ * decides "not in the future" (D47). Mirrors Market.cs.
+ */
+export const markets: { code: Market; name: string; currency: string; timeZone: string }[] = [
+  { code: 'SG', name: 'Singapore', currency: 'SGD', timeZone: 'Asia/Singapore' },
+  { code: 'MY', name: 'Malaysia', currency: 'MYR', timeZone: 'Asia/Kuala_Lumpur' },
+  { code: 'HK', name: 'Hong Kong', currency: 'HKD', timeZone: 'Asia/Hong_Kong' },
+  { code: 'TH', name: 'Thailand', currency: 'THB', timeZone: 'Asia/Bangkok' },
+  { code: 'ID', name: 'Indonesia', currency: 'IDR', timeZone: 'Asia/Jakarta' },
+  { code: 'PH', name: 'Philippines', currency: 'PHP', timeZone: 'Asia/Manila' },
+];
+
+export function marketName(code: Market): string {
+  return markets.find((m) => m.code === code)?.name ?? code;
+}
 export type ClaimType = 'Motor' | 'Property';
 export type ClaimStatus =
   'Submitted' | 'UnderReview' | 'InfoRequested' | 'Approved' | 'Settled' | 'Rejected';
@@ -80,6 +97,10 @@ export function problemMessage(err: HttpErrorResponse): string {
   // theirs; the API doesn't say which (D23), so neither do we.
   if (err.status === 404) {
     return 'This Claim was not found.';
+  }
+  // The API doesn't know the demo user this browser sent (for example, the database was reset).
+  if (err.status === 401) {
+    return "Your demo user isn't recognised. Use Switch user.";
   }
   const body = err.error;
   if (body?.errors) {

@@ -176,7 +176,7 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
-    public async Task An_unknown_event_type_throws_so_it_is_retried_and_is_not_recorded_as_processed()
+    public async Task An_unknown_event_type_throws_and_is_not_recorded_as_processed()
     {
         var eventId = Guid.NewGuid();
 

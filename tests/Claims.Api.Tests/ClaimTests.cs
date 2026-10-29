@@ -183,14 +183,16 @@ public class ClaimTests
         Assert.Equal([1000m, 2500m], claim.Events.Cast<ReserveSet>().Select(e => e.Amount));
     }
 
-    [Fact]
-    public void The_Claim_History_shows_the_Reserve_exactly_as_set_never_rounded()
+    [Theory]
+    [InlineData("1000.005", "1,000.005")]
+    [InlineData("1.0000000000001", "1.0000000000001")] // 13 decimals
+    public void The_Claim_History_shows_the_Reserve_exactly_as_set_never_rounded(string amount, string shown)
     {
         var claim = InStatus(ClaimStatus.UnderReview);
 
-        claim.SetReserve(OfficerId, 1000.005m, Later);
+        claim.SetReserve(OfficerId, decimal.Parse(amount, CultureInfo.InvariantCulture), Later);
 
-        Assert.Equal("Reserve set to SGD 1,000.005", claim.History[^1].Description);
+        Assert.Equal($"Reserve set to SGD {shown}", claim.History[^1].Description);
     }
 
     [Theory]

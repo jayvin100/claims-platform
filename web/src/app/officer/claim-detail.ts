@@ -4,7 +4,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Observable, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
-import { Claim, formatAmount, problemMessage, statusLabels } from '../claims';
+import { Claim, formatAmount, marketName, problemMessage, statusLabels } from '../claims';
 import { CurrentUser } from '../identity/current-user';
 import { OfficerApi } from './officer-api';
 
@@ -42,13 +42,13 @@ import { OfficerApi } from './officer-api';
           }
         </dd>
         <dt>Market</dt>
-        <dd>{{ claim.market }} ({{ claim.currency }})</dd>
+        <dd>{{ marketName(claim.market) }} ({{ claim.currency }})</dd>
         <dt>Claim Type</dt>
         <dd>{{ claim.claimType }}</dd>
         <dt>Policy Number</dt>
         <dd>{{ claim.policyNumber }}</dd>
         <dt>Incident date</dt>
-        <dd>{{ claim.incidentDate }}</dd>
+        <dd>{{ claim.incidentDate | date: 'd MMM y' }}</dd>
         <dt>Submitted</dt>
         <dd>{{ claim.createdAt | date: 'medium' }}</dd>
         <dt>Description</dt>
@@ -126,12 +126,12 @@ import { OfficerApi } from './officer-api';
             <li>
               <p>
                 <strong>Asked {{ request.requestedAt | date: 'medium' }}:</strong>
-                {{ request.question }}
+                <span class="text">{{ request.question }}</span>
               </p>
               @if (request.answer !== null) {
                 <p>
                   <strong>Answered {{ request.answeredAt | date: 'medium' }}:</strong>
-                  {{ request.answer }}
+                  <span class="text">{{ request.answer }}</span>
                 </p>
               } @else {
                 <p><em>Waiting for the Claimant's answer.</em></p>
@@ -145,9 +145,9 @@ import { OfficerApi } from './officer-api';
       <ol>
         @for (entry of claim.history; track $index) {
           <li>
-            {{ entry.occurredAt | date: 'medium' }}: {{ entry.description }} ({{
-              statusLabels[entry.status]
-            }})
+            {{ entry.occurredAt | date: 'medium' }}:
+            <span class="text">{{ entry.description }}</span>
+            ({{ statusLabels[entry.status] }})
           </li>
         }
       </ol>
@@ -199,6 +199,7 @@ export class ClaimDetail {
   protected readonly isMine = computed(() => this.claim()?.assignedOfficerId === this.me()?.id);
   protected readonly statusLabels = statusLabels;
   protected readonly formatAmount = formatAmount;
+  protected readonly marketName = marketName;
 
   /** Fetches at once after an action; switchMap drops any poll still in flight, so it can't overwrite the result. */
   private readonly reload = new Subject<void>();
@@ -212,11 +213,9 @@ export class ClaimDetail {
         switchMap(() =>
           this.api.claim(this.id).pipe(
             catchError((err: HttpErrorResponse) => {
+              this.loadError.set(problemMessage(err));
               if (err.status === 404) {
-                this.loadError.set('There is no such Claim.');
                 this.notFound.next();
-              } else {
-                this.loadError.set(problemMessage(err));
               }
               return EMPTY;
             }),

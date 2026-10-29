@@ -5,9 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, merge, switchMap, takeUntil, timer } from 'rxjs';
-import { Claim, formatAmount, problemMessage, statusLabels } from '../claims';
+import { Claim, formatAmount, marketName, problemMessage, statusLabels } from '../claims';
 import { ClaimantApi } from './claimant-api';
-import { marketName } from './display';
 
 // The Claim's rejection reason is kept in its Claim History entry, not a field of its own (D62).
 const rejectedPrefix = 'Claim rejected: ';

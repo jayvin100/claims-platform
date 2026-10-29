@@ -58,7 +58,7 @@ The demo users are two Claimants (Aisha Rahman, Daniel Tan) and three Officers (
 4. **Officer approves.** Switch to Priya. Open the Claim and approve it. Then open **Dashboard**: the SG row of Exposure counts the Claim as open, with SGD 5,000.00 in Open Reserves.
 5. **Officer settles, and Exposure drops.** Open the Claim again and settle it. The Claim shows Settled at once. Go back to the Dashboard: the SG open count and Open Reserves drop a few seconds later, not at once (the Dashboard refreshes every 5 seconds). That lag is eventual consistency. The Queue and Claim screens read live data, while the Dashboard reads Reporting's read model, which is fed through Kafka. Approving and settling each email Aisha in the API console.
 
-Two Officers picking up the same Claim shows the conflict rule: the second gets a clear 409 message.
+To see the conflict rule, open a Submitted Claim as two different Officers in two separate browser windows. Make one a private window, because the chosen demo user is shared through localStorage. Pick Priya in one and Marcus in the other, then click **Pick up** in both within 5 seconds (before the next refresh hides the button). The second gets a clear 409 message. Or, in Swagger, send the same pick-up call twice, once with each Officer's `X-User-Id` and `X-Role`.
 
 ## Architecture
 

@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, catchError, forkJoin, map, of, switchMap, timer } from 'rxjs';
-import { formatAmount, problemMessage, statusLabels } from '../claims';
+import { formatAmount, marketName, problemMessage, statusLabels } from '../claims';
 import { DemoUser } from '../identity/demo-user';
 import { UsersApi } from '../identity/users-api';
 import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports-api';
@@ -79,7 +79,7 @@ import { MarketExposure, OfficerWorkload, ReportsApi, Workload } from './reports
         <tbody>
           @for (row of exposure; track row.market) {
             <tr>
-              <td>{{ row.market }}</td>
+              <td>{{ marketName(row.market) }}</td>
               <td>{{ row.openClaims }}</td>
               <td>{{ formatAmount(row.currency, row.openReserves) }}</td>
               <td>{{ row.unreservedClaims }}</td>
@@ -123,6 +123,7 @@ export class Dashboard {
   private readonly officers = signal<DemoUser[] | null>(null);
   protected readonly formatAmount = formatAmount;
   protected readonly statusLabels = statusLabels;
+  protected readonly marketName = marketName;
 
   /**
    * Every Officer, sorted by name, with zeros for anyone Reporting hasn't seen pick up a Claim

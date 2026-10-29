@@ -8,9 +8,9 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Claim, ClaimType, Market, problemMessage, statusLabels } from '../claims';
+import { Claim, ClaimType, Market, markets, problemMessage, statusLabels } from '../claims';
 import { ClaimantApi } from './claimant-api';
-import { markets, todayIn } from './display';
+import { todayIn } from './display';
 
 // Spaces alone pass Validators.required but the API refuses them, so catch them here too.
 const notBlank = Validators.pattern(/\S/);

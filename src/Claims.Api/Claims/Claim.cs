@@ -89,8 +89,9 @@ public class Claim
 
         ReserveAmount = amount;
         // Thousands separators and at least two decimals, but never rounded: the timeline shows exactly what was saved.
+        // 2 fixed decimals plus 26 optional ones = 28, the most a C# decimal can hold, so no digit is ever dropped.
         // Invariant culture, so the text doesn't depend on the server's locale.
-        var shown = amount.ToString("#,0.00##########", CultureInfo.InvariantCulture);
+        var shown = amount.ToString("#,0.00" + new string('#', 26), CultureInfo.InvariantCulture);
         Record($"Reserve set to {Currency} {shown}", new ReserveSet(Guid.NewGuid(), Id, ClaimNumber, Market, now, amount, Currency));
     }
 

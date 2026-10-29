@@ -38,6 +38,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       # The API creates claim-events itself, so typos never create stray topics
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      # Keep the event log in a named volume (the image's default is /tmp), so recreating the stack
+      # doesn't lose events the outbox already marked sent. `docker compose down -v` still wipes it.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
 
 volumes:
   postgres-data:
+  kafka-data:

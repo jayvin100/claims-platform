@@ -3,7 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { EMPTY, catchError, switchMap, timer } from 'rxjs';
-import { problemMessage, statusLabels } from '../claims';
+import { marketName, problemMessage, statusLabels } from '../claims';
 import { OfficerApi, QueueItem } from './officer-api';
 
 /**
@@ -41,7 +41,7 @@ import { OfficerApi, QueueItem } from './officer-api';
                 <td>
                   <a [routerLink]="['/queue', item.id]">{{ item.claimNumber }}</a>
                 </td>
-                <td>{{ item.market }}</td>
+                <td>{{ marketName(item.market) }}</td>
                 <td>{{ item.claimType }}</td>
                 <td>{{ statusLabels[item.status] }}</td>
                 <td>{{ age(item.createdAt) }}</td>
@@ -79,6 +79,7 @@ export class Queue {
   /** When the rows were last loaded; ages are worked out from it, so they move on with each poll. */
   private readonly now = signal(Date.now());
   protected readonly statusLabels = statusLabels;
+  protected readonly marketName = marketName;
 
   constructor() {
     // Poll every 5 seconds (D30). switchMap drops a slow request when the next one starts, and

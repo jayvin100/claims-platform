@@ -3,9 +3,8 @@ import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { EMPTY, catchError, switchMap, timer } from 'rxjs';
-import { problemMessage, statusLabels } from '../claims';
+import { marketName, problemMessage, statusLabels } from '../claims';
 import { ClaimSummary, ClaimantApi } from './claimant-api';
-import { marketName } from './display';
 
 /** The Claimant's landing screen: all their Claims, newest first, refreshed every 5 seconds (D30). */
 @Component({
