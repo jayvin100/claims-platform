@@ -1,7 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
+using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
+using Claims.Api.Infrastructure.Outbox;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,7 +28,26 @@ public abstract class ClaimEventConsumer(
     /// Throws <see cref="PoisonMessageException"/> for an event type the consumer doesn't handle.
     /// </summary>
     protected abstract Task<Action?> ApplyAsync(
-        AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken);
+        AppDbContext db, ClaimEvent claimEvent, DateTimeOffset now, CancellationToken stoppingToken);
+
+    /// <summary>
+    /// Every claim event type, by the name in the Kafka header (the class name, see OutboxMessage.From), so the JSON
+    /// can be read into the right type.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, Type> EventTypes = typeof(ClaimEvent).Assembly.GetTypes()
+        .Where(t => t.IsSubclassOf(typeof(ClaimEvent)))
+        .ToDictionary(t => t.Name);
+
+    /// <summary>
+    /// The outbox's JSON settings, made strict for reading: a missing field, or a null in a field that can't be null,
+    /// fails instead of quietly becoming an empty Guid or a null. So such an event goes to the dead-letter topic,
+    /// rather than writing a bogus email or failing the database save and retrying for ever.
+    /// </summary>
+    private static readonly JsonSerializerOptions ReadOptions = new(OutboxMessage.JsonOptions)
+    {
+        RespectRequiredConstructorParameters = true,
+        RespectNullableAnnotations = true,
+    };
 
     // .NET 10 runs ExecuteAsync on a background thread, so the blocking Consume call doesn't hold up startup.
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -58,7 +78,8 @@ public abstract class ClaimEventConsumer(
                     result = consumer.Consume(stoppingToken);
                     await HandleAsync(result, deadLetters, stoppingToken);
                     // Only now is the event safely recorded (or dead-lettered), so only now does the group move past
-                    // it. If we crash before this line, Kafka redelivers the message and HandleAsync skips it.
+                    // it. If we crash before this line, Kafka redelivers the message: HandleAsync skips an event it
+                    // already recorded, and sends a poison message to the dead-letter topic again.
                     consumer.Commit(result);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -111,7 +132,9 @@ public abstract class ClaimEventConsumer(
         ConsumeResult<string, string> result, IProducer<string, string> deadLetters, CancellationToken stoppingToken)
     {
         var message = result.Message;
-        string? eventType = message.Headers is not null && message.Headers.TryGetLastBytes(KafkaOptions.EventTypeHeader, out var bytes)
+        // A header can be present with a null value; that counts as no event type (poison), not as a crash.
+        string? eventType = message.Headers is not null
+            && message.Headers.TryGetLastBytes(KafkaOptions.EventTypeHeader, out var bytes) && bytes is not null
             ? Encoding.UTF8.GetString(bytes)
             : null;
         try
@@ -152,33 +175,29 @@ public abstract class ClaimEventConsumer(
     }
 
     /// <summary>
-    /// Reads the event id, or throws <see cref="PoisonMessageException"/> with the reason if the message can't be
-    /// decoded. [NotNull] tells the compiler both arguments are non-null once it returns.
+    /// Reads a message into its event, or throws <see cref="PoisonMessageException"/> with the reason if it can't be
+    /// read: no event type, an empty value, a type that isn't a claim event, or JSON that doesn't fit that type.
+    /// Pure, with no database, so a database error can never be mistaken for poison. Public so tests read events
+    /// exactly as the consumers do.
     /// </summary>
-    private static Guid ReadEventId([NotNull] string? eventType, [NotNull] string? eventJson)
+    public static ClaimEvent ReadEvent(string? eventType, string? eventJson)
     {
         if (string.IsNullOrEmpty(eventType))
             throw new PoisonMessageException("no event-type header");
         if (string.IsNullOrEmpty(eventJson))
             throw new PoisonMessageException("empty value");
-
-        JsonDocument json;
+        if (!EventTypes.TryGetValue(eventType, out var type))
+            throw new PoisonMessageException($"unknown event type {eventType}");
         try
         {
-            json = JsonDocument.Parse(eventJson);
+            // "null" is valid JSON, but not an event.
+            return (ClaimEvent?)JsonSerializer.Deserialize(eventJson, type, ReadOptions)
+                ?? throw new PoisonMessageException($"{eventType} is null");
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            throw new PoisonMessageException("not JSON");
-        }
-        using (json)
-        {
-            if (json.RootElement.ValueKind == JsonValueKind.Object
-                && json.RootElement.TryGetProperty("eventId", out var id)
-                && id.ValueKind == JsonValueKind.String
-                && id.TryGetGuid(out var eventId))
-                return eventId;
-            throw new PoisonMessageException("no event id");
+            // Not JSON, a missing field, a null where none is allowed, or text where a number should be.
+            throw new PoisonMessageException($"can't read {eventType}: {ex.Message}");
         }
     }
 
@@ -189,8 +208,9 @@ public abstract class ClaimEventConsumer(
     /// </summary>
     public async Task ProcessAsync(string? eventType, string? eventJson, CancellationToken stoppingToken)
     {
-        // Checked before the database, so a database error is never mistaken for poison: it still retries.
-        var eventId = ReadEventId(eventType, eventJson);
+        // Read before the database, so a database error is never mistaken for poison: it still retries.
+        var claimEvent = ReadEvent(eventType, eventJson);
+        var eventId = claimEvent.EventId;
 
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -203,17 +223,7 @@ public abstract class ClaimEventConsumer(
         }
 
         var now = time.GetUtcNow();
-        Action? afterSave;
-        try
-        {
-            afterSave = await ApplyAsync(db, eventId, eventType, eventJson, now, stoppingToken);
-        }
-        catch (JsonException)
-        {
-            // Valid JSON with an event id, but its fields don't fit its event type (say, text where a number should
-            // be). No retry can fix that either.
-            throw new PoisonMessageException($"JSON doesn't fit {eventType}");
-        }
+        var afterSave = await ApplyAsync(db, claimEvent, now, stoppingToken);
         db.ProcessedEvents.Add(new ProcessedEvent(ConsumerName, eventId, now));
         // One SaveChanges is one transaction: the consumer's rows and the processed id are stored together.
         await db.SaveChangesAsync(stoppingToken);

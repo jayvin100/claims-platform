@@ -1,3 +1,4 @@
+using Claims.Api.Claims;
 using Claims.Api.Infrastructure.Data;
 using Claims.Api.Infrastructure.Kafka;
 
@@ -18,15 +19,18 @@ public class NotificationsConsumer(
     protected override string ConsumerName => Name;
 
     protected override Task<Action?> ApplyAsync(
-        AppDbContext db, Guid eventId, string eventType, string eventJson, DateTimeOffset now, CancellationToken stoppingToken)
+        AppDbContext db, ClaimEvent claimEvent, DateTimeOffset now, CancellationToken stoppingToken)
     {
-        var email = NotificationEmails.For(eventType, eventJson, now);
+        // An ignored event was still read and checked (ClaimEventConsumer.ReadEvent), so a malformed one is
+        // dead-lettered rather than recorded as processed.
+        var email = NotificationEmails.For(claimEvent, now);
         if (email is null)
         {
-            // An unknown type goes to the dead-letter topic, not recorded as processed (D90), so the partition keeps
-            // moving. NotificationEmailsTests fails for any event type that is neither mapped nor ignored.
+            // An event type with no email and not on the ignored list goes to the dead-letter topic, not recorded as
+            // processed (D90). NotificationEmailsTests fails for any event type that is neither mapped nor ignored.
+            var eventType = claimEvent.GetType().Name;
             if (!NotificationEmails.Ignored.Contains(eventType))
-                throw new PoisonMessageException($"unknown event type {eventType}");
+                throw new PoisonMessageException($"no email for event type {eventType}");
             return Task.FromResult<Action?>(null);
         }
 

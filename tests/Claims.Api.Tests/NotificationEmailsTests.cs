@@ -1,4 +1,5 @@
 using Claims.Api.Claims;
+using Claims.Api.Infrastructure.Kafka;
 using Claims.Api.Infrastructure.Outbox;
 using Claims.Api.Notifications;
 
@@ -96,6 +97,6 @@ public class NotificationEmailsTests
     private static SimulatedEmail? EmailFor(ClaimEvent claimEvent)
     {
         var row = OutboxMessage.From(claimEvent);
-        return NotificationEmails.For(row.Type, row.Payload, Now);
+        return NotificationEmails.For(ClaimEventConsumer.ReadEvent(row.Type, row.Payload), Now);
     }
 }

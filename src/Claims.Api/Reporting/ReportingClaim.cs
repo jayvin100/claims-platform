@@ -1,4 +1,5 @@
 using Claims.Api.Claims;
+using Claims.Api.Infrastructure.Kafka;
 
 namespace Claims.Api.Reporting;
 
@@ -62,8 +63,9 @@ public class ReportingClaim
                 Status = ClaimStatus.Settled;
                 break;
             default:
-                // Thrown, so the message is retried, not skipped (see ReportingConsumer.ApplyAsync).
-                throw new ArgumentException($"Reporting has no rule for {claimEvent.GetType().Name}", nameof(claimEvent));
+                // A new event type with no rule here. ReportingConsumerTests fails before that can ship; if it did, the
+                // message goes to the dead-letter topic (D90) and the totals miss it until it is replayed.
+                throw new PoisonMessageException($"Reporting has no rule for {claimEvent.GetType().Name}");
         }
     }
 }
