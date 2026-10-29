@@ -286,7 +286,9 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Bug found while preparing, fixed:** with a brand-new test database, 4 of 120 tests failed ("relation \"outbox\" already exists"). xUnit runs test classes in parallel, each with its own `ApiFactory`, and each host applies migrations as it starts, so they raced to create the same tables. It never showed before because `claims_test` already existed, but it would have broken the fresh-clone check (#14) and every new worktree database. `ApiFactory` now starts hosts one at a time. That passed three runs on fresh databases, plus a run on the existing one.
 - **Result:** 120 tests pass, with 0 build warnings. Build time at commit: 2h12m of the 5h cap.
 - **AI slip, fixed:** it first wrote this entry as 13:03 without running `date`; `date` said 13:00, and the entry, time log and build time were corrected in the next commit.
-- **Questions for me:** _(pending Jay)_ my reasons for D60–D65 and for running in parallel waves.
+- **My reasons (13:04):**
+  - **D60–D65:** I read the reasons in the decision log and agree with them; they make sense.
+  - **Parallel waves:** to show the panel I can direct several agents safely. The waves follow the blocking links, and every ticket keeps the same reviews and logging.
 
 ## Entry #18 (Thu 29 Oct 13:02): wave 1 launched; Confluent.Kafka approved
 
