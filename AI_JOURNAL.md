@@ -584,3 +584,25 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Lead's check before merging:** read the README and confirmed the ADR links exist. There were no separate review agents for this README-only change, to save time. A whole-repo final review follows.
 - **Merged** to main by fast-forward (`7ab1caa`).
 - **3h warning:** 3h00m of build time used, at 13:48. Tickets #3–#14 are all on main. The time left goes to a final whole-repo review, the council on #13's and #14's calls, and cleanup.
+
+## Entry #34 (Thu 29 Oct 13:56): final whole-repo review and final council
+
+- **Final review (13:49–13:52), read-only, three reviewers in parallel:** Codex on the whole repo, one Claude agent on the backend, and one Claude agent on the frontend and the README. None found an authorisation hole or a state-machine gap. The backend reviewer checked every role and ownership rule, every transition, `xmin` coverage, and the outbox and consumer core, and found them correct. The frontend reviewer checked that the UI matches the API on every role, status, route and JSON field.
+- **Clear bugs, sent to a fixer agent:**
+  - **Codex, hard issue:** Kafka had no named volume, so recreating the stack lost Kafka's data while Postgres kept outbox rows marked sent. Those events would never reach the consumers.
+  - **Codex, hard issue:** the Reserve text in the timeline dropped digits after the 12th decimal place, against D61.
+  - **Claude frontend, hard issue (low impact):** the Officer screen had its own 404 text, against D78.
+  - **Claude frontend, judgement calls:**
+    - Multi-line answers collapsed on the Officer screen.
+    - A 401 showed "Something went wrong".
+    - Market names and dates were shown differently from screen to screen.
+    - The README's conflict demo couldn't be reproduced as written, because the chosen user is shared across tabs through localStorage.
+  - **Claude backend, test gaps:** no test proved a concurrency conflict comes back as 409, and one Reporting test's name claimed a retry it doesn't test.
+- **Sent to the council:** six findings, plus #13's five implementation calls. The findings were unreadable Kafka messages, a stale approve across tabs, duplicate Exposure rows, overflow from extreme amounts, the outbox index, and the ADR-0005 wording.
+- **Council round 1 (13:52–13:55):**
+  - **Q1, unreadable messages:** Claude B and Codex picked (a), Notifications skips them and Reporting retries. Claude A picked (c), a known limit only, but said it could accept (a). Outcome (a), 2 of 3 (D79).
+  - **Q2 to Q6:** unanimous. Q2, Q4 and Q5 become README known limits (D80, D82, D83). Q3 keeps the grouping and makes the comment accurate (D81). Q6 rewords ADR-0005 (D84). Claude A and Claude B both checked the ADR argument against the code.
+  - **#13's calls:** accepted with no objections (D85).
+- **Process deviation, logged:** no round 2 was run. Q2 to Q6 were unanimous, and on Q1 the dissenting member had already said it accepts (a). council.md asks for a round 2.
+- **Dispatched:** the same fixer applies D79 to D84 after its bug fixes.
+
