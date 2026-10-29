@@ -71,7 +71,7 @@ public class Claim
     public void PickUp(Guid officerId, DateTimeOffset now)
     {
         if (Status != ClaimStatus.Submitted)
-            throw new ClaimConflictException("Only a Submitted Claim can be picked up.");
+            throw new ClaimConflictException("This Claim has already been picked up.");
 
         Status = ClaimStatus.UnderReview;
         AssignedOfficerId = officerId;

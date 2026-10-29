@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Claims.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using static Claims.Api.Tests.ClaimRequests;
 using static Claims.Api.Tests.TestUsers;
 
 namespace Claims.Api.Tests;
@@ -123,9 +124,9 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Claimant_lists_only_their_own_Claims_newest_first()
     {
-        var older = await SubmitAs(Aisha);
-        var danielsClaim = await SubmitAs(Daniel);
-        var newer = await SubmitAs(Aisha);
+        var older = await factory.SubmitAs(Aisha);
+        var danielsClaim = await factory.SubmitAs(Daniel);
+        var newer = await factory.SubmitAs(Aisha);
 
         var claims = (await factory.ClientAs(Aisha).GetFromJsonAsync<List<ClaimSummaryDto>>("/api/claims"))!;
 
@@ -150,7 +151,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Claimant_opens_their_Claim_and_sees_its_details_and_Claim_History()
     {
-        var submitted = await SubmitAs(Aisha);
+        var submitted = await factory.SubmitAs(Aisha);
 
         var claim = (await factory.ClientAs(Aisha).GetFromJsonAsync<ClaimDto>($"/api/claims/{submitted.Id}"))!;
 
@@ -164,7 +165,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Claimant_opening_another_Claimants_Claim_gets_404()
     {
-        var danielsClaim = await SubmitAs(Daniel);
+        var danielsClaim = await factory.SubmitAs(Daniel);
 
         var response = await factory.ClientAs(Aisha).GetAsync($"/api/claims/{danielsClaim.Id}");
 
@@ -182,28 +183,12 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Officer_can_open_any_Claim()
     {
-        var danielsClaim = await SubmitAs(Daniel);
+        var danielsClaim = await factory.SubmitAs(Daniel);
 
         var claim = (await factory.ClientAs(Priya).GetFromJsonAsync<ClaimDto>($"/api/claims/{danielsClaim.Id}"))!;
 
         Assert.Equal(danielsClaim.ClaimNumber, claim.ClaimNumber);
     }
-
-    private async Task<ClaimDto> SubmitAs(DemoUser claimant)
-    {
-        var response = await factory.ClientAs(claimant).PostAsJsonAsync("/api/claims", ValidClaim());
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ClaimDto>())!;
-    }
-
-    private static object ValidClaim(string market = "SG") => new
-    {
-        policyNumber = "POL-123",
-        market,
-        claimType = "Motor",
-        incidentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
-        description = "Rear-ended at a junction",
-    };
 
     // Postgres stores microseconds; .NET times can carry finer ticks that are lost on the way in.
     private static readonly TimeSpan PostgresTimePrecision = TimeSpan.FromMicroseconds(1);

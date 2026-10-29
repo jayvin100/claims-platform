@@ -18,7 +18,7 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     [Fact]
     public async Task Officer_picks_up_a_Submitted_Claim_and_gets_it_back_Under_Review_as_its_Assigned_Officer()
     {
-        var submitted = await SubmitAs(Aisha);
+        var submitted = await factory.SubmitAs(Aisha);
 
         var response = await factory.ClientAs(Priya).PostAsync($"/api/claims/{submitted.Id}/pick-up", null);
 
@@ -32,20 +32,20 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     [Fact]
     public async Task Picking_up_a_Claim_that_is_no_longer_Submitted_is_refused_with_409_naming_the_rule()
     {
-        var submitted = await SubmitAs(Aisha);
+        var submitted = await factory.SubmitAs(Aisha);
         await PickUpAs(Priya, submitted.Id);
 
         var response = await PickUpAs(Marcus, submitted.Id);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Only a Submitted Claim can be picked up.", problem.GetProperty("detail").GetString());
+        Assert.Equal("This Claim has already been picked up.", problem.GetProperty("detail").GetString());
     }
 
     [Fact]
     public async Task Two_Officers_picking_up_the_same_Claim_at_once_one_succeeds_and_the_other_gets_409()
     {
-        var submitted = await SubmitAs(Aisha);
+        var submitted = await factory.SubmitAs(Aisha);
 
         // Whichever lands second fails either the status rule or, if both loaded it as Submitted, the xmin check.
         var responses = await Task.WhenAll(PickUpAs(Priya, submitted.Id), PickUpAs(Marcus, submitted.Id));
@@ -69,7 +69,7 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     [Fact]
     public async Task Picking_up_a_Claim_writes_ClaimPickedUp_with_the_Assigned_Officer_and_Claimant_to_the_outbox()
     {
-        var submitted = await SubmitAs(Daniel);
+        var submitted = await factory.SubmitAs(Daniel);
 
         (await PickUpAs(Marcus, submitted.Id)).EnsureSuccessStatusCode();
 
@@ -91,7 +91,7 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     [InlineData("GET", "/api/queue")]
     public async Task Claimant_calling_an_Officer_endpoint_is_refused_with_403(string method, string path)
     {
-        var submitted = await SubmitAs(Aisha);
+        var submitted = await factory.SubmitAs(Aisha);
 
         var request = new HttpRequestMessage(new HttpMethod(method), path.Replace("{id}", submitted.Id.ToString()));
         var response = await factory.ClientAs(Aisha).SendAsync(request);
@@ -104,8 +104,8 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     [Fact]
     public async Task Queue_has_unassigned_Submitted_Claims_and_the_Officers_own_Claims_oldest_first()
     {
-        var mine = await SubmitAs(Aisha);
-        var unassigned = await SubmitAs(Daniel);
+        var mine = await factory.SubmitAs(Aisha);
+        var unassigned = await factory.SubmitAs(Daniel);
         (await PickUpAs(Priya, mine.Id)).EnsureSuccessStatusCode();
 
         var queue = (await factory.ClientAs(Priya).GetFromJsonAsync<List<QueueItemDto>>("/api/queue"))!;
@@ -123,7 +123,7 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
     [Fact]
     public async Task Queue_leaves_out_Claims_held_by_other_Officers()
     {
-        var marcusClaim = await SubmitAs(Aisha);
+        var marcusClaim = await factory.SubmitAs(Aisha);
         (await PickUpAs(Marcus, marcusClaim.Id)).EnsureSuccessStatusCode();
 
         var queue = (await factory.ClientAs(Priya).GetFromJsonAsync<List<QueueItemDto>>("/api/queue"))!;
@@ -134,17 +134,4 @@ public class OfficerQueueAndPickUpTests(ApiFactory factory) : IClassFixture<ApiF
 
     private Task<HttpResponseMessage> PickUpAs(DemoUser officer, Guid claimId) =>
         factory.ClientAs(officer).PostAsync($"/api/claims/{claimId}/pick-up", null);
-
-    private async Task<ClaimDto> SubmitAs(DemoUser claimant)
-    {
-        var claim = new
-        {
-            policyNumber = "POL-123", market = "SG", claimType = "Motor",
-            incidentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
-            description = "Rear-ended at a junction",
-        };
-        var response = await factory.ClientAs(claimant).PostAsJsonAsync("/api/claims", claim);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ClaimDto>())!;
-    }
 }

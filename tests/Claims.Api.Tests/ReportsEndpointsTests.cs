@@ -1,9 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using Claims.Api.Infrastructure.Data;
-using Claims.Api.Reporting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using static Claims.Api.Tests.TestUsers;
@@ -23,14 +21,14 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
     [Fact]
     public async Task Exposure_drops_when_a_Claim_is_settled()
     {
-        var claim = await SubmitAs(Aisha, "SG");
-        (await Send(Priya, "POST", claim, "pick-up", null)).EnsureSuccessStatusCode();
-        (await Send(Priya, "PUT", claim, "reserve", """{ "amount": 1500.50 }""")).EnsureSuccessStatusCode();
-        (await Send(Priya, "POST", claim, "approve", null)).EnsureSuccessStatusCode();
+        var claim = (await factory.SubmitAs(Aisha, "SG")).Id;
+        (await factory.Send(Priya, "POST", claim, "pick-up", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "PUT", claim, "reserve", """{ "amount": 1500.50 }""")).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", claim, "approve", null)).EnsureSuccessStatusCode();
         await DeliverOutboxFor(claim);
 
         var before = await ExposureAs(Priya);
-        (await Send(Priya, "POST", claim, "settle", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", claim, "settle", null)).EnsureSuccessStatusCode();
         await DeliverOutboxFor(claim);
         var after = await ExposureAs(Priya);
 
@@ -41,7 +39,7 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
     [Fact]
     public async Task Exposure_lists_every_Market_with_its_currency_and_counts_Unreserved_Claims()
     {
-        var unreserved = await SubmitAs(Daniel, "ID");
+        var unreserved = (await factory.SubmitAs(Daniel, "ID")).Id;
         await DeliverOutboxFor(unreserved);
 
         var response = await factory.ClientAs(Marcus).GetAsync("/api/reports/exposure");
@@ -59,13 +57,13 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
     [Fact]
     public async Task Workload_shows_each_Officers_Claims_by_status_and_the_unassigned_count()
     {
-        var unassigned = await SubmitAs(Aisha, "PH");
-        var priyas = await SubmitAs(Aisha, "SG");
-        (await Send(Priya, "POST", priyas, "pick-up", null)).EnsureSuccessStatusCode();
-        (await Send(Priya, "POST", priyas, "info-requests", """{ "question": "Please send the repair quote." }""")).EnsureSuccessStatusCode();
-        var marcuses = await SubmitAs(Daniel, "HK");
-        (await Send(Marcus, "POST", marcuses, "pick-up", null)).EnsureSuccessStatusCode();
-        (await Send(Marcus, "POST", marcuses, "reject", """{ "reason": "Not covered" }""")).EnsureSuccessStatusCode();
+        var unassigned = (await factory.SubmitAs(Aisha, "PH")).Id;
+        var priyas = (await factory.SubmitAs(Aisha, "SG")).Id;
+        (await factory.Send(Priya, "POST", priyas, "pick-up", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Priya, "POST", priyas, "info-requests", """{ "question": "Please send the repair quote." }""")).EnsureSuccessStatusCode();
+        var marcuses = (await factory.SubmitAs(Daniel, "HK")).Id;
+        (await factory.Send(Marcus, "POST", marcuses, "pick-up", null)).EnsureSuccessStatusCode();
+        (await factory.Send(Marcus, "POST", marcuses, "reject", """{ "reason": "Not covered" }""")).EnsureSuccessStatusCode();
         await DeliverOutboxFor(unassigned, priyas, marcuses);
 
         var response = await factory.ClientAs(Priya).GetAsync("/api/reports/workload");
@@ -110,36 +108,12 @@ public class ReportsEndpointsTests(ApiFactory factory) : IClassFixture<ApiFactor
         (await factory.ClientAs(officer).GetFromJsonAsync<List<ExposureDto>>("/api/reports/exposure"))!
             .ToDictionary(e => e.Market);
 
-    // Stands in for Kafka: hands each of the Claims' outbox rows to the Reporting consumer, in sequence order.
-    // Rows delivered before are skipped as already processed, as a redelivery would be.
+    // Delivers the Claims' outbox rows to the Reporting consumer in sequence order, as Kafka would.
     private async Task DeliverOutboxFor(params Guid[] claimIds)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var rows = await db.OutboxMessages.Where(m => claimIds.Contains(m.ClaimId)).OrderBy(m => m.Sequence).ToListAsync();
-        var consumer = ActivatorUtilities.CreateInstance<ReportingConsumer>(factory.Services);
-        foreach (var row in rows)
-            await consumer.ProcessAsync(row.Type, row.Payload, CancellationToken.None);
-    }
-
-    private Task<HttpResponseMessage> Send(DemoUser user, string method, Guid claimId, string action, string? body)
-    {
-        var request = new HttpRequestMessage(new HttpMethod(method), $"/api/claims/{claimId}/{action}");
-        if (body is not null)
-            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
-        return factory.ClientAs(user).SendAsync(request);
-    }
-
-    private async Task<Guid> SubmitAs(DemoUser claimant, string market)
-    {
-        var claim = new
-        {
-            policyNumber = "POL-123", market, claimType = "Motor",
-            incidentDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-2)),
-            description = "Rear-ended at a junction",
-        };
-        var response = await factory.ClientAs(claimant).PostAsJsonAsync("/api/claims", claim);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await ReportingTestData.DeliverAsync(factory, rows);
     }
 }

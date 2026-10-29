@@ -6,7 +6,7 @@ namespace Claims.Api.Tests;
 /// <summary>Seam 2: the Claim's public methods, with no database.</summary>
 public class ClaimTests
 {
-    private static readonly Guid ClaimantId = Guid.Parse("11111111-0000-0000-0000-000000000001");
+    private static readonly Guid ClaimantId = TestUsers.Aisha.Id;
 
     // 10:00 in Singapore on 29 Oct 2026.
     private static readonly DateTimeOffset Now = new(2026, 10, 29, 2, 0, 0, TimeSpan.Zero);
@@ -126,7 +126,7 @@ public class ClaimTests
 
         var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(Guid.NewGuid(), Later.AddMinutes(1)));
 
-        Assert.Equal("Only a Submitted Claim can be picked up.", error.Message);
+        Assert.Equal("This Claim has already been picked up.", error.Message);
         Assert.Equal(OfficerId, claim.AssignedOfficerId);
         Assert.Equal(2, claim.History.Count);
         Assert.Empty(claim.Events);
@@ -145,7 +145,7 @@ public class ClaimTests
 
         var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(Guid.NewGuid(), Later));
 
-        Assert.Equal("Only a Submitted Claim can be picked up.", error.Message);
+        Assert.Equal("This Claim has already been picked up.", error.Message);
         Assert.Equal(status, claim.Status);
         Assert.Equal(OfficerId, claim.AssignedOfficerId);
         Assert.Equal(historyCount, claim.History.Count);

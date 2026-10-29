@@ -11,8 +11,8 @@ namespace Claims.Api.Tests;
 /// </summary>
 public class NotificationEmailsTests
 {
-    private static readonly Guid ClaimantId = Guid.Parse("11111111-0000-0000-0000-000000000001");
-    private static readonly Guid OfficerId = Guid.Parse("22222222-0000-0000-0000-000000000001");
+    private static readonly Guid ClaimantId = TestUsers.Aisha.Id;
+    private static readonly Guid OfficerId = TestUsers.Priya.Id;
     private static readonly Guid ClaimId = Guid.NewGuid();
     private static readonly DateTimeOffset Now = new(2026, 10, 29, 2, 0, 0, TimeSpan.Zero);
     private const string ClaimNumber = "CLM-SG-000123";

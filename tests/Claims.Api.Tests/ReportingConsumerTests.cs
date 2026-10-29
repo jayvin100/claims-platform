@@ -208,17 +208,7 @@ public class ReportingConsumerTests(ApiFactory factory) : IClassFixture<ApiFacto
             Assert.Single(workload.Officers));
     }
 
-    private ReportingConsumer Consumer() => ActivatorUtilities.CreateInstance<ReportingConsumer>(factory.Services);
-
-    private async Task Apply(params ClaimEvent[] events)
-    {
-        var consumer = Consumer();
-        foreach (var claimEvent in events)
-        {
-            var row = OutboxMessage.From(claimEvent);
-            await consumer.ProcessAsync(row.Type, row.Payload, CancellationToken.None);
-        }
-    }
+    private Task Apply(params ClaimEvent[] events) => ReportingTestData.DeliverAsync(factory, events.Select(OutboxMessage.From));
 
     private async Task<ReportingClaim> RowFor(Guid claimId)
     {
@@ -267,5 +257,16 @@ public static class ReportingTestData
     {
         using var scope = factory.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AppDbContext>().ReportingClaims.ExecuteDeleteAsync();
+    }
+
+    /// <summary>
+    /// Stands in for Kafka: hands each outbox row to the Reporting consumer, in the order given.
+    /// An event delivered before is skipped as already processed, as a redelivery would be.
+    /// </summary>
+    public static async Task DeliverAsync(ApiFactory factory, IEnumerable<OutboxMessage> rows)
+    {
+        var consumer = ActivatorUtilities.CreateInstance<ReportingConsumer>(factory.Services);
+        foreach (var row in rows)
+            await consumer.ProcessAsync(row.Type, row.Payload, CancellationToken.None);
     }
 }
