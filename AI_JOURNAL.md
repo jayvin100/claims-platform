@@ -1072,3 +1072,30 @@ Written by the lead AI session in my voice; my own words are the parts in quotes
   - backend and tests: the shared test helpers, and the domain's pick-up message;
   - Angular: one `poll()` helper, the form-group validator, the `rejectionReason` tidy, `@if` instead of a nested ternary, shared table styles, the role picker's error message if it fits, distinct detail-screen selectors, and removing the pick-up override.
   Each gets a Claude and a Codex review before it merges.
+
+## Entry #62 (Thu 29 Oct 15:34): /simplify cleanups merged
+
+- **Backend and tests** (`2eb2714`, `7a1457c`):
+  - Copied helpers merged into `tests/Claims.Api.Tests/ClaimRequests.cs`: `SubmitAs` (5 copies), `Send` (3), `PickedUpBy`, `OutboxFor`, `Detail`, `ReadClaim` and `ValidClaim`.
+  - `ReportingTestData.DeliverAsync` added; the hand-copied user GUIDs are now `TestUsers`.
+  - D94: `Claim.PickUp` now says "This Claim has already been picked up." The old domain text was "Only a Submitted Claim can be picked up."; "Another Officer…" only ever existed in the Angular screen.
+  - Net −78 lines. Still 211 tests.
+- **Angular** (`109009f`):
+  - one `poll()` helper in `claims.ts` replaces the five polling chains, with named constants for 5 s and 4.5 s;
+  - a form-group validator for the incident date;
+  - a tidier `rejectionReason`;
+  - `@if` instead of a nested ternary;
+  - table and `dl` styles shared in `styles.css`;
+  - `marketFor()`;
+  - distinct detail-screen selectors;
+  - the pick-up override removed (D94).
+
+  Net −45 lines. `ng build` passes. The role picker keeps its own error message: `problemMessage`'s 401 and 404 wording doesn't fit a screen with nobody signed in.
+- **Reviews, Claude and Codex on each:**
+  - **Backend, Claude:** no hard issues; the pick-up message is true for every non-Submitted status. Two tweaks applied (a test name, explicit `null` bodies).
+  - **Backend, Codex:** one judgement call. The shared helper submits Motor, so the assess-and-decide tests no longer use Property. Skipped: no lifecycle rule reads the claim type, and Property is still submitted in `SubmitAndTrackClaimTests`.
+  - **Angular, Codex:** no functional regressions.
+  - **Angular, Claude:** confirmed the refresh cancel, stop on 404 and timeout with a Node RxJS check. Its one HARD finding was that `Claim.cs` still had the old message. That was a false positive from timing: it reviewed before the backend commit merged. After the rebase, main has the new message, and the build passes.
+  - **Angular, both:** the Claimant detail's row gap moves from 0.25rem to 0.3rem. Accepted as a cosmetic unification.
+- **No Angular tests (D72):** the Angular refactor is verified by reading, building and one RxJS check, not by tests or a browser run.
+- **Rehearsal (D89 condition 3):** started at my request. Question 1 is per-Claim ordering.
