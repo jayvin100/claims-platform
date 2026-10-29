@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Claims.Api.Infrastructure.Kafka;
 
 /// <summary>
-/// Reads claim-events for one consumer (Notifications, later Reporting) with the delivery rules both need
+/// Reads claim-events for one consumer (Notifications or Reporting) with the delivery rules both need
 /// (ADR-0004, ADR-0005, D16): its own consumer group; one message at a time; event ids it has already handled
 /// are skipped; the processed id is saved in the same transaction as the consumer's own rows; the Kafka offset
 /// is committed only after that; and a message that fails is retried, never skipped.
@@ -96,10 +96,19 @@ public abstract class ClaimEventConsumer(
         }
     }
 
-    private async Task HandleAsync(Message<string, string> message, CancellationToken stoppingToken)
+    private Task HandleAsync(Message<string, string> message, CancellationToken stoppingToken)
     {
         string eventType = Encoding.UTF8.GetString(message.Headers.GetLastBytes(KafkaOptions.EventTypeHeader));
-        using var json = JsonDocument.Parse(message.Value);
+        return ProcessAsync(eventType, message.Value, stoppingToken);
+    }
+
+    /// <summary>
+    /// Handles one event once: skips it if this consumer already recorded its id, otherwise applies it and records
+    /// the id in one transaction. Public so seam-3 tests can call it against the test database without Kafka.
+    /// </summary>
+    public async Task ProcessAsync(string eventType, string eventJson, CancellationToken stoppingToken)
+    {
+        using var json = JsonDocument.Parse(eventJson);
         var eventId = json.RootElement.GetProperty("eventId").GetGuid();
 
         using var scope = scopes.CreateScope();
@@ -113,7 +122,7 @@ public abstract class ClaimEventConsumer(
         }
 
         var now = time.GetUtcNow();
-        var afterSave = await ApplyAsync(db, eventId, eventType, message.Value, now, stoppingToken);
+        var afterSave = await ApplyAsync(db, eventId, eventType, eventJson, now, stoppingToken);
         db.ProcessedEvents.Add(new ProcessedEvent(ConsumerName, eventId, now));
         // One SaveChanges is one transaction: the consumer's rows and the processed id are stored together.
         await db.SaveChangesAsync(stoppingToken);

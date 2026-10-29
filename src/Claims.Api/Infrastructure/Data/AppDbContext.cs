@@ -3,6 +3,7 @@ using Claims.Api.Infrastructure.Identity;
 using Claims.Api.Infrastructure.Kafka;
 using Claims.Api.Infrastructure.Outbox;
 using Claims.Api.Notifications;
+using Claims.Api.Reporting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Claims.Api.Infrastructure.Data;
@@ -15,6 +16,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
     public DbSet<SimulatedEmail> SimulatedEmails => Set<SimulatedEmail>();
+    public DbSet<ReportingClaim> ReportingClaims => Set<ReportingClaim>();
 
     /// <summary>The next number from the one sequence all Markets share (D19). Gaps are fine; repeats can't happen.</summary>
     // EF's SqlQuery for a single value reads it from a column that must be called "Value".
@@ -131,6 +133,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // No limit: the body quotes the event (a rejection reason), and a too-long value would make the
             // insert fail on every retry, blocking the consumer.
             email.Property(e => e.Body);
+        });
+
+        modelBuilder.Entity<ReportingClaim>(row =>
+        {
+            // Reporting's own table (D17): it is filled from events only, with no link to the claims table.
+            row.ToTable("reporting_claims");
+            row.HasKey(r => r.ClaimId);
+            // The id comes from the event, never from the database.
+            row.Property(r => r.ClaimId).ValueGeneratedNever();
+            row.Property(r => r.Market).HasConversion<string>().HasMaxLength(2);
+            row.Property(r => r.Currency).HasMaxLength(3);
+            row.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            // No precision set, as on the Claim: the amount is kept exactly as the event gave it.
+            row.Property(r => r.ReserveAmount);
         });
     }
 }

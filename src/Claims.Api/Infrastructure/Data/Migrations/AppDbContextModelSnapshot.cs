@@ -306,6 +306,37 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                     b.ToTable("notification_log", (string)null);
                 });
 
+            modelBuilder.Entity("Claims.Api.Reporting.ReportingClaim", b =>
+                {
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedOfficerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<decimal?>("ReserveAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("ClaimId");
+
+                    b.ToTable("reporting_claims", (string)null);
+                });
+
             modelBuilder.Entity("Claims.Api.Claims.ClaimHistoryEntry", b =>
                 {
                     b.HasOne("Claims.Api.Claims.Claim", null)
