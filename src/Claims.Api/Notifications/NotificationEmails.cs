@@ -7,7 +7,10 @@ namespace Claims.Api.Notifications;
 /// <summary>Which events email the Claimant, and what each email says (D20). Pure, so it is unit-tested.</summary>
 public static class NotificationEmails
 {
-    /// <summary>The email for an event, or null if the Claimant isn't told about it.</summary>
+    /// <summary>Events that send no email on purpose: they aren't news to the Claimant.</summary>
+    public static readonly IReadOnlySet<string> Ignored = new HashSet<string> { nameof(ReserveSet), nameof(InfoProvided) };
+
+    /// <summary>The email for an event, or null if it is on <see cref="Ignored"/> or its type is unknown.</summary>
     public static SimulatedEmail? For(string eventType, string eventJson, DateTimeOffset now) => eventType switch
     {
         nameof(ClaimSubmitted) => Email<ClaimSubmitted>(eventJson, now, e => (e.ClaimantId,
@@ -28,7 +31,7 @@ public static class NotificationEmails
         nameof(ClaimSettled) => Email<ClaimSettled>(eventJson, now, e => (e.ClaimantId,
             $"Your Claim {e.ClaimNumber} has been settled",
             $"Payment for your Claim {e.ClaimNumber} has been made.")),
-        // ReserveSet and InfoProvided aren't news to the Claimant, so they send nothing.
+        // Ignored, or unknown; the consumer tells the two apart.
         _ => null,
     };
 

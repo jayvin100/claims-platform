@@ -16,7 +16,7 @@ public class NotificationEmailsTests
     private static readonly DateTimeOffset Now = new(2026, 10, 29, 2, 0, 0, TimeSpan.Zero);
     private const string ClaimNumber = "CLM-SG-000123";
 
-    public static TheoryData<ClaimEvent> EventsTheClaimantHearsAbout() =>
+    private static readonly ClaimEvent[] Emailed =
     [
         new ClaimSubmitted(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "SGD"),
         new ClaimPickedUp(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, OfficerId, ClaimantId),
@@ -25,6 +25,15 @@ public class NotificationEmailsTests
         new ClaimRejected(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId, "Not covered"),
         new ClaimSettled(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, ClaimantId),
     ];
+
+    private static readonly ClaimEvent[] NotEmailed =
+    [
+        new ReserveSet(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, 1000m, "SGD"),
+        new InfoProvided(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now),
+    ];
+
+    public static TheoryData<ClaimEvent> EventsTheClaimantHearsAbout() => new(Emailed);
+    public static TheoryData<ClaimEvent> EventsTheClaimantIsNotToldAbout() => new(NotEmailed);
 
     [Theory]
     [MemberData(nameof(EventsTheClaimantHearsAbout))]
@@ -55,10 +64,32 @@ public class NotificationEmailsTests
         Assert.Contains("Please send the repair quote.", email!.Body);
     }
 
-    [Fact]
-    public void ReserveSet_sends_no_email()
+    [Theory]
+    [MemberData(nameof(EventsTheClaimantIsNotToldAbout))]
+    public void ReserveSet_and_InfoProvided_send_no_email_and_are_ignored_on_purpose(ClaimEvent claimEvent)
     {
-        Assert.Null(EmailFor(new ReserveSet(Guid.NewGuid(), ClaimId, ClaimNumber, Market.SG, Now, 1000m, "SGD")));
+        Assert.Null(EmailFor(claimEvent));
+        Assert.Contains(claimEvent.GetType().Name, NotificationEmails.Ignored);
+    }
+
+    // The consumer skips an unknown event type rather than retrying it, so this test is what catches a new
+    // event that nobody mapped: every ClaimEvent type must either send an email or be on the ignored list.
+    [Fact]
+    public void Every_event_type_is_either_emailed_or_ignored()
+    {
+        ClaimEvent[] oneOfEach = [.. Emailed, .. NotEmailed];
+        var everyEventType = typeof(ClaimEvent).Assembly.GetTypes()
+            .Where(t => t.IsSubclassOf(typeof(ClaimEvent)))
+            .Select(t => t.Name);
+
+        // A new event type fails here until it is added to one of the two lists above.
+        Assert.Equal(everyEventType.Order(), oneOfEach.Select(e => e.GetType().Name).Order());
+        foreach (var claimEvent in oneOfEach)
+        {
+            var name = claimEvent.GetType().Name;
+            bool emailed = EmailFor(claimEvent) is not null, ignored = NotificationEmails.Ignored.Contains(name);
+            Assert.True(emailed != ignored, $"{name} must be emailed or ignored, not {(emailed ? "both" : "neither")}");
+        }
     }
 
     // Through the outbox row, so the test reads exactly the type and JSON a consumer receives from Kafka.

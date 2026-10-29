@@ -19,7 +19,14 @@ public class NotificationsConsumer(
     {
         var email = NotificationEmails.For(eventType, eventJson, now);
         if (email is null)
+        {
+            // An unknown type is skipped (recorded as processed), not retried: a retry would block every Claim on
+            // its partition. NotificationEmailsTests fails for any event type that is neither mapped nor ignored.
+            if (!NotificationEmails.Ignored.Contains(eventType))
+                logger.LogWarning("{Consumer} has no email for unknown event type {EventType} {EventId}; skipped",
+                    ConsumerName, eventType, eventId);
             return Task.FromResult<Action?>(null);
+        }
 
         db.SimulatedEmails.Add(email);
         // The console line is printed only after the row is saved, so a retried save never prints it twice.
