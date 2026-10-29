@@ -14,6 +14,7 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 | 11:53 | 12:01 | Weigh the Codex findings, apply decisions to spec, tickets, ADRs |
 | 12:04 | 12:17 | Ticket 01 (#3): Compose, API skeleton, demo identity, tests, code review |
 | 12:20 | 12:30 | Ticket 02 (#4): Claim entity, submit/list/detail endpoints, outbox table, tests, code review |
+| 12:32 | 12:39 | Ticket 03 (#5): Queue, pick-up, `xmin` concurrency, 409 mapping, tests, code review |
 
 ---
 
@@ -184,4 +185,25 @@ Times come from `date` on my machine (+08). The full opening prompt is in [docs/
 - **Smoke-checked** against the dev database: `CLM-ID-000001` was created with IDR; a future date returned a 400 problem-details response; Swagger lists the three endpoints.
 - **Result:** 42 tests pass (12 identity, 12 Claim, 18 HTTP), with 0 build warnings. Build time at commit: 1h42m of the 5h cap.
 - **My decision (12:31):** accepted D47–D53 as proposed, with no overrides. My reason: I agree with the AI's reasoning on each one, and it makes sense.
+
+## Entry #14 (Thu 29 Oct 12:39): ticket 03, Officer Queue and pick-up (#5, `/implement`)
+
+- **Asked:** `/implement 5`: test-first, review, commit and push.
+- **AI built, test-first at the agreed seams:**
+  - **Seam 2 (the Claim, no database), 7 new tests:** pick-up makes the Officer the Assigned Officer and moves a Submitted Claim to Under Review, with a Claim History entry and ClaimPickedUp (Assigned Officer id and Claimant id); a second pick-up is refused and changes nothing; pick-up is refused from each of the five other statuses.
+  - **Below HTTP, 1 test:** two database contexts load the same Submitted Claim, both pick it up, the second save throws a concurrency conflict and the first Officer keeps it. It was red first (the second save silently overwrote) until `xmin` was mapped.
+  - **Seam 1 (HTTP), 9 tests:** pick-up returns the updated Claim; a second pick-up is 409 naming the rule; two Officers at once get one 200 and one 409 (stable over 10 runs); an unknown Claim is 404; ClaimPickedUp is in the outbox with both ids; a Claimant on either Officer endpoint gets 403; the Queue has unassigned and own Claims oldest first, with "is mine", and leaves out other Officers' Claims.
+- **AI's implementation calls, for me to review** (D54–D59): `xmin` as a shadow row version; one handler maps state rules and concurrency conflicts to 409; the Queue row shape; the Queue filter; setting status by reflection in one unit test; 404 for an unknown Claim and a shared test-users helper.
+- **TDD note:** the refusal tests, the race, the outbox row, the 404 and the pick-up 403 passed on their first run, because the code from the earlier red tests already covered them.
+- **AI slip, fixed:** it generated a migration, applied it to the test database by running tests, then removed and regenerated it. The test database kept the old column. The AI dropped it and the stale history row from `claims_test` by hand; the dev database was never touched.
+- **Code review (`/code-review`, two parallel sub-agents, standards and spec):**
+  - **Fixed:** the test identity record is now named `DemoUser`, the glossary term; a one-line forwarder (`As`) in the older tests was removed.
+  - **Left as is:**
+    - The race test usually fails the loser on the status rule, not `xmin`; the two-context test proves `xmin` on its own, as the spec asks.
+    - The definition of "open" (neither Settled nor Rejected) is only in the Queue query so far; Workload reads events, not this table.
+    - The Queue row repeats most of the My Claims row; they serve different screens.
+    - Some test setup (the submit body) repeats across test files.
+  - **Known gap:** no test yet shows the Queue leaving out my Settled or Rejected Claims, because no endpoint reaches those statuses. It belongs in #7.
+- **Result:** 59 tests pass (12 identity, 19 Claim, 1 concurrency, 18 submit/track, 9 Queue/pick-up), with 0 build warnings. Build time at commit: 1h51m of the 5h cap.
+- **Questions for me:** _(pending Jay)_ do I want to override any of D54–D59?
 

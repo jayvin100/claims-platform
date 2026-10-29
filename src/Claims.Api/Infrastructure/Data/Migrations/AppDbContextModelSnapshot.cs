@@ -30,6 +30,9 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssignedOfficerId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ClaimNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -77,7 +80,15 @@ namespace Claims.Api.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AssignedOfficerId");
 
                     b.HasIndex("ClaimNumber")
                         .IsUnique();

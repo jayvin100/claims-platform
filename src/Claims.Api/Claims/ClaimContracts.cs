@@ -19,11 +19,15 @@ public record ClaimHistoryResponse(ClaimStatus Status, string Description, DateT
 
 public record ClaimResponse(
     Guid Id, string ClaimNumber, string PolicyNumber, Market Market, string Currency, ClaimType ClaimType,
-    DateOnly IncidentDate, string Description, ClaimStatus Status, Guid ClaimantId,
+    DateOnly IncidentDate, string Description, ClaimStatus Status, Guid ClaimantId, Guid? AssignedOfficerId,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, List<ClaimHistoryResponse> History)
 {
     public static ClaimResponse From(Claim claim) => new(
         claim.Id, claim.ClaimNumber, claim.PolicyNumber, claim.Market, claim.Currency, claim.ClaimType,
-        claim.IncidentDate, claim.Description, claim.Status, claim.ClaimantId, claim.CreatedAt, claim.UpdatedAt,
+        claim.IncidentDate, claim.Description, claim.Status, claim.ClaimantId, claim.AssignedOfficerId, claim.CreatedAt, claim.UpdatedAt,
         claim.History.OrderBy(h => h.Id).Select(h => new ClaimHistoryResponse(h.Status, h.Description, h.OccurredAt)).ToList());
 }
+
+/// <summary>One row of an Officer's Queue. The UI shows age from CreatedAt.</summary>
+public record QueueItemResponse(
+    Guid Id, string ClaimNumber, Market Market, ClaimType ClaimType, ClaimStatus Status, DateTimeOffset CreatedAt, bool IsMine);

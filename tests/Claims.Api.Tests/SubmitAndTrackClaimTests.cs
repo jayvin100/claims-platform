@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Claims.Api.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using static Claims.Api.Tests.TestUsers;
 
 namespace Claims.Api.Tests;
 
@@ -22,7 +23,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Claimant_submits_a_Claim_and_gets_back_a_Submitted_Claim_with_a_Claim_Number()
     {
-        var response = await As(Aisha).PostAsJsonAsync("/api/claims", ValidClaim(market: "HK"));
+        var response = await factory.ClientAs(Aisha).PostAsJsonAsync("/api/claims", ValidClaim(market: "HK"));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var claim = (await response.Content.ReadFromJsonAsync<ClaimDto>())!;
@@ -37,7 +38,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Submitting_a_Claim_writes_ClaimSubmitted_to_the_outbox()
     {
-        var response = await As(Aisha).PostAsJsonAsync("/api/claims", ValidClaim(market: "TH"));
+        var response = await factory.ClientAs(Aisha).PostAsJsonAsync("/api/claims", ValidClaim(market: "TH"));
         var claim = (await response.Content.ReadFromJsonAsync<ClaimDto>())!;
 
         // The outbox is what the publisher (and so every consumer) will read, so the test reads it too.
@@ -70,7 +71,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [InlineData("""{ "policyNumber": "P", "market": "SG", "claimType": "Motor", "incidentDate": "2026-01-01", "description": "" }""", "empty description")]
     public async Task Submitting_a_Claim_with_a_missing_or_invalid_field_is_refused_with_400(string body, string because)
     {
-        var response = await As(Aisha).PostAsync("/api/claims", new StringContent(body, Encoding.UTF8, "application/json"));
+        var response = await factory.ClientAs(Aisha).PostAsync("/api/claims", new StringContent(body, Encoding.UTF8, "application/json"));
 
         _ = because; // names the case in the test runner output
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -86,7 +87,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
             description = "Not yet happened",
         };
 
-        var response = await As(Aisha).PostAsJsonAsync("/api/claims", claim);
+        var response = await factory.ClientAs(Aisha).PostAsJsonAsync("/api/claims", claim);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -103,7 +104,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
             description = "Burst pipe", currency = "USD",
         };
 
-        var response = await As(Aisha).PostAsJsonAsync("/api/claims", claim);
+        var response = await factory.ClientAs(Aisha).PostAsJsonAsync("/api/claims", claim);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Equal("PHP", (await response.Content.ReadFromJsonAsync<ClaimDto>())!.Currency);
@@ -112,7 +113,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Officer_submitting_a_Claim_is_refused_with_403()
     {
-        var response = await As(Priya).PostAsJsonAsync("/api/claims", ValidClaim());
+        var response = await factory.ClientAs(Priya).PostAsJsonAsync("/api/claims", ValidClaim());
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -126,7 +127,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
         var danielsClaim = await SubmitAs(Daniel);
         var newer = await SubmitAs(Aisha);
 
-        var claims = (await As(Aisha).GetFromJsonAsync<List<ClaimSummaryDto>>("/api/claims"))!;
+        var claims = (await factory.ClientAs(Aisha).GetFromJsonAsync<List<ClaimSummaryDto>>("/api/claims"))!;
 
         var ids = claims.Select(c => c.Id).ToList();
         Assert.Contains(older.Id, ids);
@@ -141,7 +142,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Officer_listing_Claimant_Claims_is_refused_with_403()
     {
-        var response = await As(Priya).GetAsync("/api/claims");
+        var response = await factory.ClientAs(Priya).GetAsync("/api/claims");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -151,7 +152,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     {
         var submitted = await SubmitAs(Aisha);
 
-        var claim = (await As(Aisha).GetFromJsonAsync<ClaimDto>($"/api/claims/{submitted.Id}"))!;
+        var claim = (await factory.ClientAs(Aisha).GetFromJsonAsync<ClaimDto>($"/api/claims/{submitted.Id}"))!;
 
         Assert.Equal(submitted.ClaimNumber, claim.ClaimNumber);
         Assert.Equal("POL-123", claim.PolicyNumber);
@@ -165,7 +166,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     {
         var danielsClaim = await SubmitAs(Daniel);
 
-        var response = await As(Aisha).GetAsync($"/api/claims/{danielsClaim.Id}");
+        var response = await factory.ClientAs(Aisha).GetAsync($"/api/claims/{danielsClaim.Id}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -173,7 +174,7 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     [Fact]
     public async Task Opening_a_Claim_that_does_not_exist_gets_404()
     {
-        var response = await As(Aisha).GetAsync($"/api/claims/{Guid.NewGuid()}");
+        var response = await factory.ClientAs(Aisha).GetAsync($"/api/claims/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -183,14 +184,14 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
     {
         var danielsClaim = await SubmitAs(Daniel);
 
-        var claim = (await As(Priya).GetFromJsonAsync<ClaimDto>($"/api/claims/{danielsClaim.Id}"))!;
+        var claim = (await factory.ClientAs(Priya).GetFromJsonAsync<ClaimDto>($"/api/claims/{danielsClaim.Id}"))!;
 
         Assert.Equal(danielsClaim.ClaimNumber, claim.ClaimNumber);
     }
 
-    private async Task<ClaimDto> SubmitAs(DemoIdentity claimant)
+    private async Task<ClaimDto> SubmitAs(DemoUser claimant)
     {
-        var response = await As(claimant).PostAsJsonAsync("/api/claims", ValidClaim());
+        var response = await factory.ClientAs(claimant).PostAsJsonAsync("/api/claims", ValidClaim());
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<ClaimDto>())!;
     }
@@ -206,18 +207,4 @@ public class SubmitAndTrackClaimTests(ApiFactory factory) : IClassFixture<ApiFac
 
     // Postgres stores microseconds; .NET times can carry finer ticks that are lost on the way in.
     private static readonly TimeSpan PostgresTimePrecision = TimeSpan.FromMicroseconds(1);
-
-    private record DemoIdentity(Guid Id, string Role);
-
-    private static readonly DemoIdentity Aisha = new(Guid.Parse("11111111-0000-0000-0000-000000000001"), "Claimant");
-    private static readonly DemoIdentity Daniel = new(Guid.Parse("11111111-0000-0000-0000-000000000002"), "Claimant");
-    private static readonly DemoIdentity Priya = new(Guid.Parse("22222222-0000-0000-0000-000000000001"), "Officer");
-
-    private HttpClient As(DemoIdentity user)
-    {
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-User-Id", user.Id.ToString());
-        client.DefaultRequestHeaders.Add("X-Role", user.Role);
-        return client;
-    }
 }

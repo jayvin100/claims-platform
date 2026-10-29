@@ -16,6 +16,7 @@ public class Claim
     public string Description { get; private set; } = null!;
     public ClaimStatus Status { get; private set; }
     public Guid ClaimantId { get; private set; }
+    public Guid? AssignedOfficerId { get; private set; } // empty until an Officer picks the Claim up (D11)
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -56,5 +57,18 @@ public class Claim
         claim._events.Add(new ClaimSubmitted(
             Guid.NewGuid(), claim.Id, claim.ClaimNumber, market, now, claimantId, claim.Currency));
         return claim;
+    }
+
+    /// <summary>Any Officer picks up a Submitted Claim and becomes its Assigned Officer (D11).</summary>
+    public void PickUp(Guid officerId, DateTimeOffset now)
+    {
+        if (Status != ClaimStatus.Submitted)
+            throw new ClaimConflictException("Only a Submitted Claim can be picked up.");
+
+        Status = ClaimStatus.UnderReview;
+        AssignedOfficerId = officerId;
+        UpdatedAt = now;
+        _history.Add(new ClaimHistoryEntry(Status, "Claim picked up for review", now));
+        _events.Add(new ClaimPickedUp(Guid.NewGuid(), Id, ClaimNumber, Market, now, officerId, ClaimantId));
     }
 }

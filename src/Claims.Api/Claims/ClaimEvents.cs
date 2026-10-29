@@ -11,3 +11,8 @@ public record ClaimSubmitted(
     Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
     Guid ClaimantId, string Currency)
     : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);
+
+public record ClaimPickedUp(
+    Guid EventId, Guid ClaimId, string ClaimNumber, Market Market, DateTimeOffset OccurredAt,
+    Guid AssignedOfficerId, Guid ClaimantId)
+    : ClaimEvent(EventId, ClaimId, ClaimNumber, Market, OccurredAt);

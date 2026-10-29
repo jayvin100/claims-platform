@@ -93,6 +93,69 @@ public class ClaimTests
         Assert.Equal(ClaimStatus.Submitted, claim.Status);
     }
 
+    private static readonly Guid OfficerId = Guid.Parse("22222222-0000-0000-0000-000000000001");
+    private static readonly DateTimeOffset Later = Now.AddHours(1);
+
+    [Fact]
+    public void Pick_up_makes_the_Officer_the_Assigned_Officer_and_moves_a_Submitted_Claim_to_Under_Review()
+    {
+        var claim = Submit(Market.SG, new DateOnly(2026, 10, 28));
+        claim.ClearEvents();
+
+        claim.PickUp(OfficerId, Later);
+
+        Assert.Equal(ClaimStatus.UnderReview, claim.Status);
+        Assert.Equal(OfficerId, claim.AssignedOfficerId);
+        Assert.Equal(Later, claim.UpdatedAt);
+        var entry = claim.History[^1];
+        Assert.Equal((ClaimStatus.UnderReview, "Claim picked up for review", Later), (entry.Status, entry.Description, entry.OccurredAt));
+        var pickedUp = Assert.IsType<ClaimPickedUp>(Assert.Single(claim.Events));
+        Assert.NotEqual(Guid.Empty, pickedUp.EventId);
+        Assert.Equal((claim.Id, claim.ClaimNumber, Market.SG, Later), (pickedUp.ClaimId, pickedUp.ClaimNumber, pickedUp.Market, pickedUp.OccurredAt));
+        Assert.Equal(OfficerId, pickedUp.AssignedOfficerId);
+        Assert.Equal(ClaimantId, pickedUp.ClaimantId);
+    }
+
+    [Fact]
+    public void Pick_up_of_a_Claim_already_picked_up_is_refused_and_the_Assigned_Officer_is_unchanged()
+    {
+        var claim = Submit(Market.SG, new DateOnly(2026, 10, 28));
+        claim.PickUp(OfficerId, Later);
+        claim.ClearEvents();
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(Guid.NewGuid(), Later.AddMinutes(1)));
+
+        Assert.Equal("Only a Submitted Claim can be picked up.", error.Message);
+        Assert.Equal(OfficerId, claim.AssignedOfficerId);
+        Assert.Equal(2, claim.History.Count);
+        Assert.Empty(claim.Events);
+    }
+
+    [Theory]
+    [InlineData(ClaimStatus.UnderReview)]
+    [InlineData(ClaimStatus.InfoRequested)]
+    [InlineData(ClaimStatus.Approved)]
+    [InlineData(ClaimStatus.Settled)]
+    [InlineData(ClaimStatus.Rejected)]
+    public void Pick_up_is_refused_from_every_status_except_Submitted(ClaimStatus status)
+    {
+        var claim = InStatus(status);
+
+        var error = Assert.Throws<ClaimConflictException>(() => claim.PickUp(OfficerId, Later));
+
+        Assert.Equal("Only a Submitted Claim can be picked up.", error.Message);
+        Assert.Equal(status, claim.Status);
+    }
+
+    // The Claim's methods to reach some statuses (approve, settle...) come in later tickets, so this sets
+    // the status the way EF Core does when it loads a row: through the private setter.
+    private static Claim InStatus(ClaimStatus status)
+    {
+        var claim = Submit(Market.SG, new DateOnly(2026, 10, 28));
+        typeof(Claim).GetProperty(nameof(Claim.Status))!.SetValue(claim, status);
+        return claim;
+    }
+
     private static Claim Submit(Market market, DateOnly incidentDate, long sequence = 1) =>
         Claim.Submit(ClaimantId, "POL-1", market, ClaimType.Motor, incidentDate, "Rear-ended at a junction", sequence, Now);
 }

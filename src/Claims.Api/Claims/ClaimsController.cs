@@ -53,4 +53,23 @@ public class ClaimsController(AppDbContext db, CurrentUser currentUser, TimeProv
 
         return ClaimResponse.From(claim);
     }
+
+    [HttpPost("{id:guid}/pick-up")]
+    [Authorize(Roles = nameof(UserRole.Officer))]
+    [EndpointSummary("Officer only: picks up a Submitted Claim, becoming its Assigned Officer")]
+    [ProducesResponseType<ClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ClaimResponse>> PickUp(Guid id)
+    {
+        var claim = await db.Claims.Include(c => c.History).SingleOrDefaultAsync(c => c.Id == id);
+        if (claim is null)
+            return NotFound();
+
+        // Two Officers at once: the later save fails its xmin check and ClaimExceptionHandler answers 409.
+        claim.PickUp(currentUser.Id, clock.GetUtcNow());
+        await db.SaveChangesAsync();
+
+        return ClaimResponse.From(claim);
+    }
 }

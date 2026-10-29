@@ -64,6 +64,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             claim.ToTable("claims");
             claim.HasIndex(c => c.ClaimNumber).IsUnique();
             claim.HasIndex(c => c.ClaimantId);
+            claim.HasIndex(c => c.AssignedOfficerId);
             claim.Property(c => c.ClaimNumber).HasMaxLength(20);
             claim.Property(c => c.PolicyNumber).HasMaxLength(50);
             claim.Property(c => c.Market).HasConversion<string>().HasMaxLength(2);
@@ -71,6 +72,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             claim.Property(c => c.ClaimType).HasConversion<string>().HasMaxLength(20);
             claim.Property(c => c.Description).HasMaxLength(2000);
             claim.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
+
+            // Optimistic concurrency (D13): Npgsql maps a uint row version to Postgres's own xmin column,
+            // which changes on every update. EF adds "WHERE xmin = <value when loaded>" to each UPDATE, so if
+            // another request saved first, no row matches and SaveChanges throws DbUpdateConcurrencyException.
+            // A shadow property, because the version is a database concern the Claim's rules never read.
+            claim.Property<uint>("Version").IsRowVersion();
 
             // History is saved through the Claim (its "_history" field); ClaimId is a database-only column.
             claim.HasMany(c => c.History).WithOne().HasForeignKey("ClaimId").IsRequired();
