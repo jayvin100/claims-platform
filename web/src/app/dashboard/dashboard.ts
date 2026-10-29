@@ -166,7 +166,7 @@ export class Dashboard {
       .pipe(
         switchMap(() =>
           forkJoin([this.reports.workload(), this.reports.exposure(), this.loadOfficers()]).pipe(
-            timeout(4500), // see problemMessage
+            timeout(4500), // all three GETs together; see problemMessage
             // A failed poll shows a message and leaves the last figures on screen; the next tick tries again.
             catchError((err: HttpErrorResponse | TimeoutError) => {
               this.error.set(problemMessage(err));

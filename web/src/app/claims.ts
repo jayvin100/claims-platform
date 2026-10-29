@@ -99,7 +99,8 @@ export function formatAmount(currency: string, amount: number): string {
  */
 export function problemMessage(err: HttpErrorResponse | TimeoutError): string {
   // A polling screen gives each GET 4.5 s: shorter than its 5 s tick, so a slow request fails here
-  // with a message before the next tick's switchMap would cancel it silently.
+  // with a message before the next tick's switchMap would cancel it silently. Action calls (pick up,
+  // approve, submit) have no timeout.
   if (err instanceof TimeoutError) {
     return 'The server took too long to answer.';
   }
